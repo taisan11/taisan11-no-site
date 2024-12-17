@@ -1,16 +1,25 @@
 ---
-
+import layout from '../layouts/layout.astro';
 ---
-
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
-	</head>
-	<body>
-		<h1>Astro</h1>
-	</body>
-</html>
+<layout title="Home Page">
+  <h1>taisan11のさいと!!</h1>
+  <p><s>デザイン?何それおいしいの?</s></p>
+  <p>すいませんいつか作り直します。</p>
+  <h2>Profile</h2>
+  <p><b>名前:</b>taisan11(たいさん)</p>
+  <p><b>好きな技術:</b>Bun,JS&TS,他色々</p>
+  <p><b>好きな食べ物:</b>カレーライス</p>
+  <p><b>好きなもの:</b>嫌いなもの以外</p>
+  <h2>作ったもの</h2>
+  <table>
+    <tr>
+      <th>名前</th>
+      <th>説明</th>
+    </tr>
+    <tr>
+      <td><a href="./">このサイト<a/></td>
+      <td>自分で作ったよ!!</td>
+    </tr>
+  </table>
+  
+</layout>
