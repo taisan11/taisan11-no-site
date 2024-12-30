@@ -1,25 +1,38 @@
 ---
-import layout from '../layouts/layout.astro';
+import Layout from '../layouts/layout.astro';
+import Table from '../components/Table.astro';
 ---
-<layout title="Home Page">
+<Layout title="Home Page">
   <h1>taisan11のさいと!!</h1>
   <p><s>デザイン?何それおいしいの?</s></p>
-  <p>すいませんいつか作り直します。</p>
+  <p><s>すいませんいつか作り直します。</s></p>
+  <p>作り直してるよ!!</p>
   <h2>Profile</h2>
   <p><b>名前:</b>taisan11(たいさん)</p>
   <p><b>好きな技術:</b>Bun,JS&TS,他色々</p>
   <p><b>好きな食べ物:</b>カレーライス</p>
   <p><b>好きなもの:</b>嫌いなもの以外</p>
   <h2>作ったもの</h2>
-  <table>
+  <table class="border-2 border-gray border-collapse border-solid">
     <tr>
-      <th>名前</th>
-      <th>説明</th>
+      <th class="border-2 border-gray border-solid">名前</th>
+      <th class="border-2 border-gray border-solid">説明</th>
     </tr>
     <tr>
-      <td><a href="./">このサイト<a/></td>
-      <td>自分で作ったよ!!</td>
+      <td class="border-2 border-gray border-solid"><a href="./">このサイト<a/></td>
+      <td class="border-2 border-gray border-solid">自分で作ったよ!!</td>
     </tr>
   </table>
-  
-</layout>
+  <h2>SNS(CONTACT)</h2>
+  <p>ここに乗ってるもの以外は偽物だと思います</p>
+  <table class="border-2 border-gray border-collapse border-solid">
+    <tr>
+      <th class="border-2 border-gray border-solid">名前</th>
+      <th class="border-2 border-gray border-solid">説明</th>
+    </tr>
+    <tr>
+      <td class="border-2 border-gray border-solid"><a href="./">このサイト<a/></td>
+      <td class="border-2 border-gray border-solid">自分で作ったよ!!</td>
+    </tr>
+  </table>
+</Layout>

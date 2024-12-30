@@ -1,4 +1,5 @@
 ---
+import A from "../components/A.astro" 
 const { title } = Astro.props;
 ---
 
@@ -9,7 +10,19 @@ const { title } = Astro.props;
         <meta name="viewport" content="width=device-width" />
         <title>{title}</title>
     </head>
-    <body>
-        <slot/>
+    <body class="bg-gray-6">
+        <header class="flex justify-center items-center flex-col">
+            <h1 class="text-4xl font-bold">taisan11のさいと!!</h1>
+            <nav class="flex space-x-3 text-size-lg">
+            <A href="./">links</>
+            <A href="./about">about</>
+            <A href="./contact">contact</>
+            </nav>
+        </header>
+        <div class="flex justify-center items-center min-h-10vh flex-grow">
+            <div class="rounded-2xl flex-none border border-solid bg-gray-9 color-white w-[25vw] p-8">
+            <slot/>
+            </div>
+        </div>
     </body>
 </html>
