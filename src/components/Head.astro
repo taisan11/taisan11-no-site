@@ -1,0 +1,28 @@
+---
+interface Props {
+    descriptionadd?: string;
+    title: string;
+    defaultogp?: boolean;
+}
+
+const {descriptionadd,title,defaultogp=true} = Astro.props;
+const siteurl = Astro.site?.href||"http://localhost:3000";
+---
+<head>
+    <slot/>
+    <meta name="description" content={descriptionadd ? descriptionadd + " | taisan11のサイト" : "taisan11の公式サイトです。"} />
+    <meta charset="utf-8">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>{title}</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <!-- defaultogpがtrueの場合のみ以下のogpを追加 -->
+    {defaultogp&&
+    <meta property="og:locale" content="ja_JP" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={descriptionadd ? descriptionadd + " | taisan11のサイト" : "taisan11の公式サイトです。"} />
+    <meta property="og:url" content={siteurl} />
+    <meta name="twitter:site" content="@taisan11_" />
+    <meta name="twitter:card" content="summary" />}
+</head>
