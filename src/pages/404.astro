@@ -1,0 +1,23 @@
+---
+import Layout from '../layouts/layout.astro';
+import Seika from '../components/Seika.astro';
+import Table from '../components/Table.astro';
+import A from '../components/A.astro';
+---
+<Layout title="制作物 | taisan11">
+  <h1>404 Not Found</h1>
+  <p>This paaaaeg isaa errorrrrr</p>
+  <A href="./">back to Home</A>
+  <p id="reload">System reloading..</p>
+</Layout>
+<script type="module" lang="ts">
+    setTimeout(() => {
+        location.href = "./";
+    }, 5500);
+    const reload = document.getElementById("reload");
+    setInterval(() => {
+        let count = 5;
+        count--;
+        reload.innerText = `${reload.innerText}${'.'.repeat(Math.floor(Math.random() * 10) + 1)}`;
+    }, 1000);
+</script>

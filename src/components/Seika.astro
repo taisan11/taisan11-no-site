@@ -1,0 +1,20 @@
+---
+interface Props {
+    name: string;
+    repo: string;// owner/repo
+    links?: string[];
+    mainlink?: string;
+}
+
+const {name,repo,links,mainlink} = Astro.props;
+---
+
+<div class="border rounded">
+    <h2 class="text-2xl font-bold">{mainlink ? (<a href={mainlink}>{name}</a>) : (name)}</h2>
+    <div class="flex space-x-2 my-0 py-0">
+        <!-- links icons -->
+        <!-- repo link -->
+        {repo ? (<a href={`https://github.com/${repo}`} class="i-mdi-github my-0 py-0 h-8 m-i"/>):null}
+    </div>
+    <slot>
+</div>
