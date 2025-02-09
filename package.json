@@ -12,10 +12,10 @@
     "@astrojs/sitemap": "^3.2.1",
     "@playform/compress": "^0.1.7",
     "@taisan11/vite-plugin-budoux-build": "npm:@jsr/taisan11__vite-plugin-budoux-build",
-    "astro": "5.1.8"
+    "astro": "5.2.5"
   },
   "devDependencies": {
     "@iconify-json/mdi": "^1.2.3",
-    "unocss": "^65.4.2"
+    "unocss": "^65.4.3"
   }
 }
