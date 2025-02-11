@@ -15,10 +15,31 @@ const { title } = Astro.props;
             <A href="/contact">contact</>
             </nav>
         </header>
-        <div class="flex justify-center items-center min-h-10vh flex-grow max-w-full">
-            <div class="rounded-2xl flex-none border border-solid bg-gray-9 color-white min-w-200px w-[30vw] p-8">
+        <div class="main">
             <slot/>
-            </div>
         </div>
+        <footer class="footer">
+            <p>©2025 taisan11</p>
+        </footer>
     </body>
 </html>
+
+<style>
+    .main {
+        max-width: 600px;
+        margin: 20px auto;
+        padding: 20px;
+        background-color: rgba(17, 24, 39, 1);
+        color: white;
+        border-radius: 1rem;
+        border-width: 2px;
+        border-style: solid;
+        border-color: white;
+    }
+    .footer {
+        text-align: center;
+        margin-top: 20px;
+        padding: 15px auto;
+        color: white;
+    }
+</style>
