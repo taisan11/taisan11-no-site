@@ -13,5 +13,17 @@ export default defineConfig({
         playformCompress(),
         aaa()
     ],
+    vite:{
+        css:{
+            transformer:"lightningcss",
+            // lightningcss:{
+            //     targets:""
+            // }
+        },
+        build:{
+            // cssCodeSplit:true,
+            cssMinify:"lightningcss"
+        }
+    },
     prefetch:true
 });
