@@ -1,5 +1,7 @@
 import { defineConfig } from 'astro/config';
 import type {AstroIntegration} from "astro"
+import {getLastCommit} from "git-last-commit"
+import type {Commit} from "git-last-commit"
 import UnoCSS from 'unocss/astro'
 import sitemap from '@astrojs/sitemap';
 import playformCompress from '@playform/compress';
@@ -38,6 +40,16 @@ function buildSizeLogger():AstroIntegration {
     };
 }
 
+const lastCommit = await new Promise<Commit>((resolve, reject) => {
+  getLastCommit((err: Error | undefined, commit) => {
+      if (err) reject(err)
+      else resolve(commit)
+  })
+})
+
+const commitDate = new Date(+lastCommit.committedOn * 1000)
+//toLocaleString("ja-JP", {timeZone: "Asia/Tokyo",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"})
+
 // https://astro.build/config
 export default defineConfig({
     site:"https://taisan11.f5.si",
@@ -55,6 +67,14 @@ export default defineConfig({
             //     targets:""
             // }
         },
+        plugins: [
+            {
+              name: 'replace-text',
+              transform(code) {
+                  return code.replace(/AcommitIDA/g, lastCommit.hash).replace(/AcommitBranchA/g,lastCommit.branch);
+              }
+            }
+        ],
         build:{
             // cssCodeSplit:true,
             cssMinify:"lightningcss"
