@@ -71,7 +71,7 @@ export default defineConfig({
             {
               name: 'replace-text',
               transform(code) {
-                  return code.replace(/AcommitIDA/g, lastCommit.hash).replace(/AcommitBranchA/g,lastCommit.branch);
+                    return code.replace(/AcommitIDA/g, lastCommit.hash.substring(0, 6)).replace(/AcommitBranchA/g, lastCommit.branch);
               }
             }
         ],
