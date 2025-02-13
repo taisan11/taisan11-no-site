@@ -9,6 +9,8 @@ import aaa from "@taisan11/vite-plugin-budoux-build/astro"
 import fs from "fs";
 import path from "path";
 
+import robotsTxt from "astro-robots-txt";
+
 function getDirectorySize(dirPath:string) {
   const aaa = path.format({dir:dirPath})
   let totalSize = 0;
@@ -53,13 +55,7 @@ const commitDate = new Date(+lastCommit.committedOn * 1000)
 // https://astro.build/config
 export default defineConfig({
     site:"https://taisan11.f5.si",
-    integrations:[
-        UnoCSS(),
-        sitemap(),
-        playformCompress(),
-        aaa(),
-        buildSizeLogger()
-    ],
+    integrations:[UnoCSS(), sitemap(), playformCompress(), aaa(), buildSizeLogger(), robotsTxt({policy:[{userAgent:"*",disallow:"/kakusi/*"}]})],
     vite:{
         css:{
             transformer:"lightningcss",
