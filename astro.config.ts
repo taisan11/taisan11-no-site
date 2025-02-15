@@ -36,7 +36,7 @@ function buildSizeLogger():AstroIntegration {
         hooks: {
             "astro:build:done": async ({ dir }) => {
                 const size = getDirectorySize(new URL(dir.href).pathname);
-                console.log(`\n📦 Build Size: ${(size / 1024 / 1024).toFixed(2)} MB\n`);
+                console.log(`\n📦 Build Size: ${size / 1024 / 1024} MB\n`);
             },
         },
     };
