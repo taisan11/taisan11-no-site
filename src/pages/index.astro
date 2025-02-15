@@ -12,28 +12,42 @@ import A from '../components/A.astro';
   <p><b>好きな食べ物:</b>カレーライス</p>
   <p><b>好きなもの:</b>嫌いなもの以外</p>
   <h2>作ったもの</h2>
-  <table class="border-2 border-gray border-collapse border-solid">
+  <table>
     <tr>
-      <th class="border-2 border-gray border-solid">名前</th>
-      <th class="border-2 border-gray border-solid">説明</th>
+      <th>名前</th>
+      <th>説明</th>
     </tr>
     <tr>
-      <td class="border-2 border-gray border-solid"><A href="/">このサイト<a/></td>
-      <td class="border-2 border-gray border-solid">自分で作ったよ!!</td>
+      <td><A href="/">このサイト<a/></td>
+      <td>自分で作ったよ!!</td>
     </tr>
   </table>
-  <h2>SNS(CONTACT)</h2>
+  <h2>SNS</h2>
   <p>ここに乗ってるもの以外は偽物だと思います</p>
-  <table class="border-2 border-gray border-collapse border-solid">
+  <table>
     <tr>
-      <th class="border-2 border-gray border-solid">名前</th>
-      <th class="border-2 border-gray border-solid">説明</th>
+      <th>名前</th>
+      <th>説明</th>
     </tr>
     <tr>
-      <td class="border-2 border-gray border-solid"><A href="/">このサイト<a/></td>
-      <td class="border-2 border-gray border-solid">自分で作ったよ!!</td>
+      <td><A href="/">このサイト<a/></td>
+      <td>自分で作ったよ!!</td>
     </tr>
   </table>
   <h2>相互リンク</h2>
   <p>まだない...</p>
 </Layout>
+
+<style>
+  table {
+    border-width: 2px;
+    border-color: gray;
+    border-collapse: collapse;
+    border: solid;
+  }
+  th,td {
+    border-width: 2px;
+    border-color: gray;
+    border: solid;
+  }
+</style>
