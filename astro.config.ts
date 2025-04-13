@@ -58,7 +58,7 @@ const commitDate = new Date(+lastCommit.committedOn * 1000)
 // https://astro.build/config
 export default defineConfig({
     site:"https://taisan11.f5.si",
-    integrations:[UnoCSS({}), sitemap(), playformCompress(), aaa(), buildSizeLogger(), robotsTxt({policy:[{userAgent:"*",disallow:"/kakusi/*"}]})],
+    integrations:[UnoCSS(), sitemap(), playformCompress(), aaa(), robotsTxt({policy:[{userAgent:"*",disallow:"/kakusi/*"}]})],
     vite:{
         css:{
             transformer:"lightningcss",
