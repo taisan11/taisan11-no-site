@@ -5,7 +5,7 @@ export default defineConfig({
   presets:[presetWind4(),presetIcons({autoInstall:true}),presetWebFonts()],
   content:{
     pipeline:{
-      exclude:["**/index.astro"]
+      // exclude:["**/index.astro"]
     }
   }
 })
