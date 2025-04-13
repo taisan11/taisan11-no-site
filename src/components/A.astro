@@ -1,9 +1,19 @@
 ---
 const {href} = Astro.props
 ---
-<a href={href} class="link:text-green-5 hover:text-#4ad47c active:text-green-5 visited:text-green-6 font-bold"><slot/></a>
+<a href={href}><slot/></a>
 <style>
-    .l {
-        
+    a {
+        color:#67AE6E;
+        font-weight: 700;
+    }
+    a:hover {
+        color:#4ad47c;
+    }
+    a:active {
+        color:#67AE6E;
+    }
+    a:visited {
+        color:#4ad47c;
     }
 </style>
