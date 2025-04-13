@@ -1,6 +1,11 @@
 import { defineConfig } from 'unocss'
-import {presetUno,presetIcons,presetWebFonts} from "unocss"
+import {presetWind4,presetIcons,presetWebFonts} from "unocss"
 
 export default defineConfig({
-  presets:[presetUno(),presetIcons({autoInstall:true}),presetWebFonts()]
+  presets:[presetWind4(),presetIcons({autoInstall:true}),presetWebFonts()],
+  content:{
+    pipeline:{
+      exclude:["**/index.astro"]
+    }
+  }
 })
