@@ -11,14 +11,15 @@ import A from '../components/A.astro';
   <p><b>好きな技術:</b>Bun,JS&TS,他色々</p>
   <p><b>好きな食べ物:</b>カレーライス</p>
   <p><b>好きなもの:</b>嫌いなもの以外</p>
-  <h2>作ったもの</h2>
+  <h2>(主に)作ったもの</h2>
+  <A href="/works" class="text-xl mb-2">もっと見たい方はこちら!!</A>
   <table>
     <tr>
       <th>名前</th>
       <th>説明</th>
     </tr>
     <tr>
-      <td><A href="/">このサイト<A/></td>
+      <td><A href="/">このサイト</A></td>
       <td>自分で作ったよ!!</td>
     </tr>
   </table>
@@ -34,6 +35,8 @@ import A from '../components/A.astro';
   <A href="https://www.wantedly.com/users/1345793">Wantedly: @taisan11</A><br />
   <A href="https://qiita.com/taisan11">Qiita: @taisan11</A><span style="width:0.1vw"/>
   <A href="https://zenn.dev/taisan11">Zenn: @taisan11</A><br />
+  <h2>依頼について</h2>
+  <p>依頼は主に、Webアプリやツール系を受けつています。<br/>また、軽い動画編集なども行えます<br/>意外となんでもできるのでXのDMに相談してみてください!!</p>
   <h2>相互リンク</h2>
   <p>まだない...</p>
 </Layout>
@@ -49,5 +52,9 @@ import A from '../components/A.astro';
     border-width: 2px;
     border-color: gray;
     border: solid;
+  }
+  h2,h4 {
+    margin-top: 0.4rem;
+    margin-bottom: 0.4rem;
   }
 </style>
