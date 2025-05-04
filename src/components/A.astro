@@ -6,7 +6,7 @@ interface Props {
 const {href, class: className} = Astro.props
 ---
 <a href={href} class={className}><slot/></a>
-<style>
+<style is:global>
     a {
         color:#71c479;
         font-weight: 700;
