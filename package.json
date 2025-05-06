@@ -19,6 +19,6 @@
     "@iconify-json/mdi": "^1.2.3",
     "git-last-commit": "^1.0.1",
     "lightningcss": "^1.29.3",
-    "unocss": "^66.1.0-beta.13"
+    "unocss": "^66.1.0"
   }
 }
