@@ -52,13 +52,13 @@ const lastCommit = await new Promise<Commit>((resolve, reject) => {
   })
 })
 
-const commitDate = new Date(+lastCommit.committedOn * 1000)
+// const commitDate = new Date(+lastCommit.committedOn * 1000)
 //toLocaleString("ja-JP", {timeZone: "Asia/Tokyo",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"})
 
 // https://astro.build/config
 export default defineConfig({
     site:"https://taisan11.f5.si",
-    integrations:[UnoCSS(), sitemap(), playformCompress(), aaa(), robotsTxt({policy:[{userAgent:"*",disallow:"/kakusi/*"}]})],
+    integrations:[UnoCSS(), sitemap(), playformCompress(), aaa(), robotsTxt({policy:[{userAgent:"*",disallow:"/kakusi/*"}]}),buildSizeLogger()],
     vite:{
         css:{
             transformer:"lightningcss",

@@ -4,13 +4,18 @@ import Table from '../components/Table.astro';
 import A from '../components/A.astro';
 ---
 <Layout title="taisan11のサイト">
-  <h1>taisan11のさいと!!</h1>
-  <p>ども!!</p>
-  <h2>Profile</h2>
-  <p><b>名前:</b>taisan11(たいさん)</p>
-  <p><b>好きな技術:</b>Bun,JS&TS,他色々</p>
-  <p><b>好きな食べ物:</b>カレーライス</p>
-  <p><b>好きなもの:</b>嫌いなもの以外</p>
+  <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 50vh; max-width: 100vw; position: relative;">
+    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; margin-bottom: 10vh;">
+      <h1 class="text-5xl p-0 m-0">taisan11</h1>
+      <p class="p-0 m-0 text-xl" style="color:#929ec9; text-align: center;" id="message">Hey!!</p>
+    </div>
+    <div style="position: absolute; bottom: 0; width: 100%; display: flex; justify-content: center; margin-bottom: 0;">
+      <span style="font-size: 1.2rem; color: #cfcfcf; padding: 0.3rem 0.8rem; box-shadow: 0 1px 4px #0001;">
+        <span class="font-bold text-2xl" style="color:#dbdbdb;">A</span>ccess: <span style="font-size:1.2rem; font-weight: normal;">12345</span>
+      </span>
+    </div>
+  </div>
+  <hr style="border: none; border-top: 2px solid #cccccc87; width: 100%; margin: 2rem auto;" />
   <h2>(主に)作ったもの</h2>
   <A href="/works" class="text-xl mb-2">もっと見たい方はこちら!!</A>
   <table>
@@ -42,6 +47,52 @@ import A from '../components/A.astro';
   <A href="https://taisan11.f5.si/">taisan11のサイト</A><br/>
   <a href="https://sakana11.org/"><img src="https://cdn.sakana11.org/new-banner.png" alt="sakana11のバナー" style="width: 55%; height: auto;"></a>
 </Layout>
+
+<script>
+const el = document.getElementById('message');
+const messages = [
+  "Hey!!",
+  "よおこそ",
+  "Hello!!",
+  "taisan11 is here",
+  "動画編集もできるよ",
+  "Super Hyper Programer",
+  "高校一年生",
+  "本名から取りました"
+];
+
+function randomString(length:number) {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  let result = "";
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
+//定数(ミリ秒)
+const animationDuration = 1000;
+const interval = 100;
+
+function animateMessage(element: HTMLElement, finalMessage: string) {
+  let elapsed = 0;
+  const timer = setInterval(() => {
+    element.textContent = randomString(finalMessage.length);
+    elapsed += interval;
+    if (elapsed >= animationDuration) {
+      clearInterval(timer);
+      element.textContent = finalMessage;
+    }
+  }, interval);
+}
+
+function setRandomMessage() {
+  const msg = messages[Math.floor(Math.random() * messages.length)];
+  animateMessage(el!, msg);
+}
+
+setInterval(setRandomMessage, 2000);
+</script>
 
 <style is:global>
   table {
