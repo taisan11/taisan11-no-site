@@ -1,0 +1,56 @@
+---
+import { Image } from "astro:assets";
+
+interface Props {
+    icon: ImageMetadata;
+    themeColor: string;
+    href: string;
+}
+
+const { icon, themeColor, href } = Astro.props;
+---
+
+<a
+    type="button"
+    class="sns-btn"
+    href={href}
+    style={`--theme-color: ${themeColor}; --theme-color-shadow: ${themeColor}80;`}
+>
+    <Image src={icon} alt="SNS icon" class:list={["icon"]} />
+</a>
+
+<style is:global>
+    .sns-btn {
+        width: 48px;
+        height: 48px;
+        background: #615eaf;
+        border: none;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition:
+            box-shadow 0.2s,
+            background 0.2s;
+        outline: none;
+        padding: 0;
+    }
+
+    .sns-btn .icon svg {
+        width: 40px;
+        height: 40px;
+        fill: #fff;
+        transition: fill 0.2s;
+    }
+
+    .sns-btn:hover .icon svg,
+    .sns-btn:focus .icon svg {
+        fill: var(--theme-color);
+    }
+
+    .sns-btn:hover,
+    .sns-btn:focus {
+        box-shadow: 0 0 18px 0 var(--theme-color-shadow);
+    }
+</style>

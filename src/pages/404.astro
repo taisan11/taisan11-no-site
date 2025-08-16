@@ -1,14 +1,15 @@
 ---
-import Layout from '../layouts/layout.astro';
-import Seika from '../components/Seika.astro';
-import Table from '../components/Table.astro';
-import A from '../components/A.astro';
+import Layout from "../layouts/layout.astro";
+import Seika from "../components/Seika.astro";
+import Table from "../components/Table.astro";
+import A from "../components/A.astro";
 ---
-<Layout title="404404 | taisan11">
-  <h1>404 Not Found</h1>
-  <p>This paaaaeg isaa errorrrrr</p>
-  <A href="./">back to Home</A>
-  <p id="reload">System reloading..</p>
+
+<Layout title="404404 | taisan11" class:list={["Noyokonaga"]}>
+    <h1>404 Not Found</h1>
+    <p>This paaaaeg isaa errorrrrr</p>
+    <A href="./">back to Home</A>
+    <p id="reload">System reloading..</p>
 </Layout>
 <script type="module" lang="ts">
     setTimeout(() => {
@@ -18,6 +19,13 @@ import A from '../components/A.astro';
     setInterval(() => {
         let count = 5;
         count--;
-        reload.innerText = `${reload.innerText}${'.'.repeat(Math.floor(Math.random() * 10) + 1)}`;
+        reload.innerText = `${reload.innerText}${".".repeat(Math.floor(Math.random() * 10) + 1)}`;
     }, 1000);
 </script>
+<style is:global>
+    @media (orientation: landscape) {
+        .main {
+            margin: auto 30vw;
+        }
+    }
+</style>

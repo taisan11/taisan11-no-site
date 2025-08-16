@@ -1,21 +1,44 @@
 ---
-import Layout from '../layouts/layout.astro';
-import Table from '../components/Table.astro';
-import A from '../components/A.astro';
+import Layout from "../layouts/layout.astro";
+import Table from "../components/Table.astro";
+import A from "../components/A.astro";
+import SNSButton from "../components/SNSButton.astro";
+import GitHub from "../icons/github.svg";
+import Zenn from "../icons/zenn.svg";
+import Twitter from "../icons/twitter.svg";
 ---
+
 <Layout title="taisan11のサイト">
-  <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 50vh; max-width: 100vw; position: relative;">
-    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; margin-bottom: 10vh;">
+  <div
+    style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 50vh; max-width: 100vw; position: relative;"
+  >
+    <div
+      style="display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; margin-bottom: 10vh;"
+    >
       <h1 class="text-5xl p-0 m-0">taisan11</h1>
-      <p class="p-0 m-0 text-xl" style="color:#929ec9; text-align: center;" id="message">Hey!!</p>
+      <p
+        class="p-0 m-0 text-xl"
+        style="color:#929ec9; text-align: center;"
+        id="message"
+      >
+        Hey!!
+      </p>
     </div>
-    <div style="position: absolute; bottom: 0; width: 100%; display: flex; justify-content: center; margin-bottom: 0;">
-      <span style="font-size: 1.2rem; color: #cfcfcf; padding: 0.3rem 0.8rem; box-shadow: 0 1px 4px #0001;">
-        <span class="font-bold text-2xl" style="color:#dbdbdb;">A</span>ccess: <span style="font-size:1.2rem; font-weight: normal;">12345</span>
+    <div
+      style="position: absolute; bottom: 0; width: 100%; display: flex; justify-content: center; margin-bottom: 0;"
+    >
+      <span
+        style="font-size: 1.2rem; color: #cfcfcf; padding: 0.3rem 0.8rem; box-shadow: 0 1px 4px #0001;"
+      >
+        <span class="font-bold text-2xl" style="color:#dbdbdb;">A</span>ccess: <span
+          style="font-size:1.2rem; font-weight: normal;">12345</span
+        >
       </span>
     </div>
   </div>
-  <hr style="border: none; border-top: 2px solid #cccccc87; width: 100%; margin: 2rem auto;" />
+  <hr
+    style="border: none; border-top: 2px solid #cccccc87; width: 100%; margin: 2rem auto;"
+  />
   <div class="Noyokonaga">
     <h2>(主に)作ったもの</h2>
     <A href="/works" class="text-xl mb-2">もっと見たい方はこちら!!</A>
@@ -32,68 +55,106 @@ import A from '../components/A.astro';
     <h2 id="Contact">Contact</h2>
     <p>ここに乗ってるもの以外は偽物だと思います</p>
     <p>email: .....?</p>
-    <h4>SNS達</h4>
-    <A href="https://github.com/taisan11">github: @taisan11</A><span style="width:0.2vw"/>
-    <A href="https://x.com/taisan11_">Twitter(X): @taisan11_</A><br />
-    <A href="https://taisan11.hatenablog.com/">HatenaBlog</A><span style="width:0.1vw"/>
-    <A href="https://pawoo.net/web/accounts/7020633">pawoo: @taisan11</A><br />
-    <A href="https://bsky.app/profile/taisan11.bsky.social">BlueSky: @taisan11.bsky.social</A><span style="width:0.1vw"/>
-    <A href="https://www.wantedly.com/users/1345793">Wantedly: @taisan11</A><br />
-    <A href="https://qiita.com/taisan11">Qiita: @taisan11</A><span style="width:0.1vw"/>
-    <A href="https://zenn.dev/taisan11">Zenn: @taisan11</A><br />
+    <h4>SNS</h4>
+    <div class="top" style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem; align-items: center;">
+      <SNSButton icon={GitHub} themeColor="#181717" href="https://github.com/taisan11"/>
+      <SNSButton icon={Twitter} themeColor="#1D9BF0" href="https://x.com/taisan11_"/>
+      <SNSButton icon={Zenn} themeColor="#3EA8FF" href="https://zenn.dev/taisan11"/>
+      <button id="sns-toggle" style="background: none; border: none; cursor: pointer; padding: 0;">
+        <span id="sns-arrow" style="display: inline-block; transition: transform 0.2s;font-size: 2rem;color: #a2a2a2;font-weight: bold;text-shadow: 0 2px 8px #0003;">↓</span>
+      </button>
+    </div>
+    <div
+      id="sns-accordion"
+      style="display: none; flex-direction: column; gap: 0.2rem; margin-bottom: 0.5rem;"
+    >
+      <A href="https://taisan11.hatenablog.com/">HatenaBlog</A><span
+        style="width:0.1vw"></span>
+      <A href="https://pawoo.net/web/accounts/7020633">pawoo: @taisan11</A><br
+      />
+      <A href="https://bsky.app/profile/taisan11.bsky.social"
+        >BlueSky: @taisan11.bsky.social</A
+      ><span style="width:0.1vw"></span>
+      <A href="https://www.wantedly.com/users/1345793">Wantedly: @taisan11</A
+      ><br />
+      <A href="https://qiita.com/taisan11">Qiita: @taisan11</A><span
+        style="width:0.1vw"></span>
+    </div>
     <h2>依頼について</h2>
-    <p>依頼は主に、Webアプリやツール系を受けつています。<br/>また、軽い動画編集なども行えます<br/>意外となんでもできるのでXのDMに相談してみてください!!</p>
+    <p>
+      依頼は主に、Webアプリやツール系を受けつています。<br
+      />また、軽い動画編集なども行えます<br
+      />意外となんでもできるのでXのDMに相談してみてください!!
+    </p>
     <h2>相互リンク</h2>
     <p>とりあえず僕のリンクは画像なしです(怠惰)</p>
-    <A href="https://taisan11.f5.si/">taisan11のサイト</A><br/>
-    <a href="https://sakana11.org/"><img src="https://cdn.sakana11.org/new-banner.png" alt="sakana11のバナー"></a>
+    <A href="https://taisan11.f5.si/">taisan11のサイト</A><br />
+    <a href="https://sakana11.org/"
+      ><img
+        src="https://cdn.sakana11.org/new-banner.png"
+        alt="sakana11のバナー"
+      /></a
+    >
   </div>
 </Layout>
 
 <script>
-const el = document.getElementById('message');
-const messages = [
-  "Hey!!",
-  "よおこそ",
-  "Hello!!",
-  "taisan11 is here",
-  "動画編集もできるよ",
-  "Super Hyper Programer",
-  "高校一年生",
-  "本名から取りました"
-];
+  const el = document.getElementById("message");
+  const messages = [
+    "Hey!!",
+    "よおこそ",
+    "Hello!!",
+    "taisan11 is here",
+    "動画編集もできるよ",
+    "Super Hyper Programer",
+    "高校一年生",
+    "本名から取りました",
+  ];
 
-function randomString(length:number) {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  let result = "";
-  for (let i = 0; i < length; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
-}
-
-//定数(ミリ秒)
-const animationDuration = 1000;
-const interval = 100;
-
-function animateMessage(element: HTMLElement, finalMessage: string) {
-  let elapsed = 0;
-  const timer = setInterval(() => {
-    element.textContent = randomString(finalMessage.length);
-    elapsed += interval;
-    if (elapsed >= animationDuration) {
-      clearInterval(timer);
-      element.textContent = finalMessage;
+  function randomString(length: number) {
+    const chars =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    let result = "";
+    for (let i = 0; i < length; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
     }
-  }, interval);
-}
+    return result;
+  }
 
-function setRandomMessage() {
-  const msg = messages[Math.floor(Math.random() * messages.length)];
-  animateMessage(el!, msg);
-}
+  //定数(ミリ秒)
+  const animationDuration = 1000;
+  const interval = 100;
 
-setInterval(setRandomMessage, 2000);
+  function animateMessage(element: HTMLElement, finalMessage: string) {
+    let elapsed = 0;
+    const timer = setInterval(() => {
+      element.textContent = randomString(finalMessage.length);
+      elapsed += interval;
+      if (elapsed >= animationDuration) {
+        clearInterval(timer);
+        element.textContent = finalMessage;
+      }
+    }, interval);
+  }
+
+  function setRandomMessage() {
+    const msg = messages[Math.floor(Math.random() * messages.length)];
+    animateMessage(el!, msg);
+  }
+
+  setInterval(setRandomMessage, 2000);
+</script>
+
+<script>
+  const toggleBtn = document.getElementById("sns-toggle");
+  const accordion = document.getElementById("sns-accordion");
+  const arrow = document.getElementById("sns-arrow");
+  let open = false;
+  toggleBtn?.addEventListener("click", () => {
+    open = !open;
+    accordion!.style.display = open ? "flex" : "none";
+    arrow!.style.transform = open ? "rotate(180deg)" : "rotate(0deg)";
+  });
 </script>
 
 <style is:global>
@@ -103,12 +164,14 @@ setInterval(setRandomMessage, 2000);
     border-collapse: collapse;
     border: solid;
   }
-  th,td {
+  th,
+  td {
     border-width: 2px;
     border-color: gray;
     border: solid;
   }
-  h2,h4 {
+  h2,
+  h4 {
     margin-top: 0.4rem;
     margin-bottom: 0.4rem;
   }
