@@ -1,0 +1,27 @@
+---
+import { getCollection } from 'astro:content';
+import Layout from "../layouts/layout.astro";
+const posts = await getCollection('blog');
+---
+
+<Layout>
+  <div class="Noyokonaga">
+    <h1>Blog一覧</h1>
+    <ul>
+      {posts.map(post => (
+        <li>
+          <a href={`/blog/${post.id}/`}>{post.data.title}</a>
+          <p>{post.body?.slice(0, 100)}...</p>
+        </li>
+      ))}
+    </ul>
+  </div>
+</Layout>
+
+<style is:global>
+  @media (orientation: landscape) {
+    .Noyokonaga {
+      margin: auto 30vw;
+    }
+  }
+</style>

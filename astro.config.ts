@@ -8,8 +8,8 @@ import playformCompress from '@playform/compress';
 import aaa from "@taisan11/vite-plugin-budoux-build/astro"
 import fs from "fs";
 import path from "path";
-
 import robotsTxt from "astro-robots-txt";
+import mdx from "@astrojs/mdx";
 
 function getDirectorySize(dirPath:string) {
   let totalSize = 0;
@@ -58,7 +58,7 @@ const lastCommit = await new Promise<Commit>((resolve, reject) => {
 // https://astro.build/config
 export default defineConfig({
     site:"https://taisan11.f5.si",
-    integrations:[UnoCSS(), sitemap(), playformCompress(), aaa(), robotsTxt({policy:[{userAgent:"*",disallow:"/kakusi/*"}]}),buildSizeLogger()],
+    integrations:[UnoCSS(), sitemap(), playformCompress(), aaa(), robotsTxt({policy:[{userAgent:"*",disallow:"/kakusi/*"}]}), buildSizeLogger(), mdx()],
     vite:{
         css:{
             transformer:"lightningcss",
