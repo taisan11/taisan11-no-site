@@ -4,5 +4,11 @@
   "compatibility_date": "2025-08-16",
   "assets": {
     "directory": "./dist"
-  }
+  },
+  "routes": [
+    {
+      "pattern": "taisan11.f5.si",
+      "custom_domain": true
+    }
+  ]
 }
