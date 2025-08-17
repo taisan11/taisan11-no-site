@@ -17,6 +17,8 @@ description: ブログを解説してみました
 ## テスト部分
 ブログの機能を試したりする場所です。気にしないでね
 
+`test()`
+### コードブロック
 ```ts
 const a:string = "this is string"
 console.log("hello "+a+" san")
