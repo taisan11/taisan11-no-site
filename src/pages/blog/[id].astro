@@ -15,19 +15,63 @@ const { Content } = await render(post);
 ---
 
 <Layout>
-  <article class="Noyokonaga text-base prose xl:text-xl">
+  <div class="meta">
     <h1>{post.data.title}</h1>
+    <div>
+      <p class="date">{post.data.date!.toLocaleDateString("ja-JP",{ year: 'numeric', month: 'long', day: 'numeric' })}</p>
+    </div>
+  </div>
+  <article class="prose col-start-2 max-w-none">
     <Content />
   </article>
 </Layout>
 
 <style is:global>
+  .meta {
+    text-align: center;
+    margin-bottom: 0.5rem;
+    h1 {
+      font-size: 2rem;
+      font-weight: bold;
+      margin:0;
+    }
+    .date {
+      font-size: 1rem;
+      color: #b8b8b8;
+    }
+  }
   :root {
     color:aliceblue;
   }
+  article {
+    margin: 2rem 0;
+    font-size: 110%;
+    /* letter-spacing: 0.02em; */
+    word-break: keep-all;
+    /* line-height: 1.6; */
+  }
   @media (orientation: landscape) {
-    .Noyokonaga {
+    article {
       margin: auto 25vw;
     }
+  }
+  h2 a, h3 a, h4 a {
+  position: relative;
+  text-decoration: none;
+  color: inherit;
+  }
+
+  h2 a::before, h3 a::before, h4 a::before {
+    content: "🔗"; /* 好きなアイコンに変更可 */
+    position: absolute;
+    left: -1.5em;   /* 見出しの左側に配置 */
+    opacity: 0;     /* 普段は非表示 */
+    transition: opacity 0.2s;
+  }
+
+  h2 a:hover::before,
+  h3 a:hover::before,
+  h4 a:hover::before {
+    opacity: 1;     /* hover 時に表示 */
   }
 </style>

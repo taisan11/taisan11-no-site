@@ -1,15 +1,29 @@
+// Astro
 import { defineConfig } from 'astro/config';
-import type {AstroIntegration} from "astro"
-import {getLastCommit} from "git-last-commit"
-import type {Commit} from "git-last-commit"
 import UnoCSS from 'unocss/astro'
 import sitemap from '@astrojs/sitemap';
 import playformCompress from '@playform/compress';
 import aaa from "@taisan11/vite-plugin-budoux-build/astro"
-import fs from "fs";
-import path from "path";
 import robotsTxt from "astro-robots-txt";
 import mdx from "@astrojs/mdx";
+//markdown
+import remarkbreaks from "remark-breaks"
+import rehypeexternallinks from "rehype-external-links"
+import slug from "rehype-slug"
+import autolink from "rehype-autolink-headings"
+// import remarkEmbedder from '@remark-embedder/core'
+// import oembedTransformer from '@remark-embedder/transformer-oembed';
+// import {default as Cache} from "@remark-embedder/cache"
+//other
+import type {AstroIntegration} from "astro"
+import {getLastCommit} from "git-last-commit"
+import type {Commit} from "git-last-commit"
+import fs from "node:fs";
+import path from "node:path";
+const cacheDir = './.cache/oembed';
+if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
+
+// const cache = new Cache();
 
 function getDirectorySize(dirPath:string) {
   let totalSize = 0;
@@ -59,6 +73,13 @@ const lastCommit = await new Promise<Commit>((resolve, reject) => {
 export default defineConfig({
     site:"https://taisan11.f5.si",
     integrations:[UnoCSS(), sitemap(), playformCompress(), aaa(), robotsTxt({policy:[{userAgent:"*",disallow:"/kakusi/*"}]}), buildSizeLogger(), mdx()],
+    markdown: {
+      remarkPlugins: [
+        remarkbreaks,
+        // remarkEmbedder({ cache, transformers: [oembedTransformer] }),
+      ],
+      rehypePlugins: [rehypeexternallinks, slug, autolink({behavior: 'wrap'})],
+    },
     vite:{
         css:{
             transformer:"lightningcss",
