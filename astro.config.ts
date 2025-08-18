@@ -19,10 +19,6 @@ import {getLastCommit} from "git-last-commit"
 import type {Commit} from "git-last-commit"
 import fs from "node:fs";
 import path from "node:path";
-const cacheDir = './.cache/oembed';
-if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
-
-// const cache = new Cache();
 
 function getDirectorySize(dirPath:string) {
   let totalSize = 0;
