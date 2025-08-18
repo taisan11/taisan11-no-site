@@ -15,7 +15,9 @@
     "@taisan11/vite-plugin-budoux-build": "npm:@jsr/taisan11__vite-plugin-budoux-build",
     "astro": "5.13.2",
     "astro-robots-txt": "^1.0.0",
-    "remark-breaks": "^4.0.0"
+    "remark-breaks": "^4.0.0",
+    "remark-link-card-plus": "^0.7.0",
+    "unfurl.js": "^6.4.0"
   },
   "devDependencies": {
     "@iconify-json/mdi": "^1.2.3",

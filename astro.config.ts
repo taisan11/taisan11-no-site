@@ -11,9 +11,8 @@ import remarkbreaks from "remark-breaks"
 import rehypeexternallinks from "rehype-external-links"
 import slug from "rehype-slug"
 import autolink from "rehype-autolink-headings"
-// import remarkEmbedder from '@remark-embedder/core'
-// import oembedTransformer from '@remark-embedder/transformer-oembed';
-// import {default as Cache} from "@remark-embedder/cache"
+import {remarkEmbed,oEmbedTransformer,youTubeTransformer,googleSlidesTransformer, type RemarkEmbedOptions} from "./src/lib/remarkEmbed.ts";
+import remarkLinkCard from "remark-link-card-plus";
 //other
 import type {AstroIntegration} from "astro"
 import {getLastCommit} from "git-last-commit"
@@ -76,13 +75,19 @@ export default defineConfig({
     markdown: {
       remarkPlugins: [
         remarkbreaks,
-        // remarkEmbedder({ cache, transformers: [oembedTransformer] }),
+        [
+          remarkEmbed,
+          {
+            transformers: [youTubeTransformer, googleSlidesTransformer, oEmbedTransformer],
+          } satisfies RemarkEmbedOptions,
+        ],
+        remarkLinkCard
       ],
       rehypePlugins: [rehypeexternallinks, slug, autolink({behavior: 'wrap'})],
     },
     vite:{
         css:{
-            transformer:"lightningcss",
+            transformer:import.meta.env.DEV?undefined:"lightningcss",
             // lightningcss:{
             //     targets:""
             // }
@@ -97,7 +102,7 @@ export default defineConfig({
         ],
         build:{
             // cssCodeSplit:true,
-            cssMinify:"lightningcss"
+            cssMinify:import.meta.env.DEV?undefined:"lightningcss"
         }
     },
     prefetch:true

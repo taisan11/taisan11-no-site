@@ -1,6 +1,7 @@
 ---
 import { getCollection, render } from 'astro:content';
 import Layout from "../../layouts/layout.astro";
+import "../../style/are.css"
 // 1. Generate a new path for every collection entry
 export async function getStaticPaths() {
   const posts = await getCollection('blog');
@@ -12,6 +13,21 @@ export async function getStaticPaths() {
 // 2. For your template, you can get the entry directly from the prop
 const { post } = Astro.props;
 const { Content, headings } = await render(post);
+
+// import { Callout, CalloutTitle } from "@/components/Elements/Callout"
+// import { CodeBlock } from "@/components/Elements/CodeBlock"
+// import { OEmbed } from "@/components/Elements/Embed"
+// import LinkCard from "../../components/LinkCard.astro"
+// import { Code } from "@/components/ui/Code"
+
+export const mdxComponents = {
+  // callout: Callout,
+  // "callout-title": CalloutTitle,
+  // pre: CodeBlock,
+  // "link-card": LinkCard,
+  // oembed: OEmbed,
+  // "inline-code": Code,
+}
 ---
 
 <Layout>
@@ -35,7 +51,7 @@ const { Content, headings } = await render(post);
     </details>
   </div>
   <article class="prose col-start-2 max-w-none">
-    <Content />
+    <Content components={mdxComponents}/>
   </article>
 </Layout>
 

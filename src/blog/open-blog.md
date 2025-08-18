@@ -23,5 +23,9 @@ description: ブログを解説してみました
 const a:string = "this is string"
 console.log("hello "+a+" san")
 ```
+### 埋め込み
+たまたまお勧めにあったから載せてる
 
-https://github.com/taisan11/taisan11-no-site/blob/bb908a31a1e91611912a6f911dcc11b0aa8d0735/LICENSE#L1
+https://www.youtube.com/embed/MaJ4xsG7Fcc
+
+https://zenn.dev/ricora/articles/5a170c17933c3f
