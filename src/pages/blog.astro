@@ -32,12 +32,15 @@ const toLocaleDateString = (date:Date) => {
       {zenn.map(post => {
         // Safely resolve a link/url from the union-shaped post.data without relying on a property that may not exist.
         const href = String((post.data as any).link ?? (post.data as any).url ?? '#');
+        const pubDateRaw = (post.data as any).pubDate ?? (post.data as any).date ?? (post.data as any).updated ?? null;
+        const pubDateObj = pubDateRaw ? new Date(pubDateRaw) : null;
+        const pubDateText = toLocaleDateString(pubDateObj as Date) || '';
         return (
         <a href={href} class="card" style="text-decoration: none; color: inherit;" target="_blank" rel="noopener noreferrer">
           <div>
             <div class="card-title">{post.data.title}</div>
-            <p class="card-body">{post.data.description || post.body?.slice(0, 40)}</p>
-            <p class="date">{toLocaleDateString(new Date((post.data as any).pubDate))}</p>
+            <p class="card-body">{post.data.description!.slice(0, 30) || post.body?.slice(0, 10)}</p>
+            {pubDateText && <p class="date">{pubDateText}</p>}
           </div>
         </a>
         );
@@ -50,7 +53,7 @@ const toLocaleDateString = (date:Date) => {
     display: grid;
     grid-template-columns: 1fr;
     gap: 1.5rem;
-    margin-top: 2rem;
+    /* margin-top: 1.5rem; */
   }
   @media (orientation: landscape) {
     .card-list {
