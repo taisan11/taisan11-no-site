@@ -1,7 +1,9 @@
 ---
 import { getCollection } from 'astro:content';
+import type { CollectionEntry,AnyEntryMap } from 'astro:content';
 import Layout from "../layouts/layout.astro";
 const posts = await getCollection('blog');
+const zenn: CollectionEntry<keyof AnyEntryMap>[] = await getCollection('zenn');
 
 //軽量化
 const intl = new Intl.DateTimeFormat('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -25,6 +27,21 @@ const toLocaleDateString = (date:Date) => {
         </a>
       ))}
     </div>
+    <h1 style="margin-top: 4rem;">Zenn記事一覧</h1>
+    <div class="card-list">
+      {zenn.map(post => {
+        // Safely resolve a link/url from the union-shaped post.data without relying on a property that may not exist.
+        const href = String((post.data as any).link ?? (post.data as any).url ?? '#');
+        return (
+        <a href={href} class="card" style="text-decoration: none; color: inherit;" target="_blank" rel="noopener noreferrer">
+          <div>
+            <div class="card-title">{post.data.title}</div>
+            <p class="card-body">{post.data.description || post.body?.slice(0, 40)}</p>
+            <p class="date">{toLocaleDateString(new Date((post.data as any).pubDate))}</p>
+          </div>
+        </a>
+        );
+      })}
   </div>
 </Layout>
 

@@ -10,16 +10,17 @@
   },
   "dependencies": {
     "@astrojs/mdx": "4.3.5",
-    "@astrojs/sitemap": "3.5.1",
+    "@astrojs/sitemap": "3.6.0",
     "@playform/compress": "^0.2.0",
     "@taisan11/vite-plugin-budoux-build": "npm:@jsr/taisan11__vite-plugin-budoux-build",
-    "astro": "5.13.7",
+    "astro": "5.13.8",
     "astro-robots-txt": "^1.0.0",
     "remark-breaks": "^4.0.0",
     "remark-link-card-plus": "^0.7.0",
     "unfurl.js": "^6.4.0"
   },
   "devDependencies": {
+    "@ascorbic/feed-loader": "^2.0.1",
     "@iconify-json/mdi": "^1.2.3",
     "@remark-embedder/cache": "^2.1.0",
     "@remark-embedder/core": "^3.0.3",
