@@ -67,7 +67,7 @@ const lastCommit = await new Promise<Commit>((resolve, reject) => {
 // https://astro.build/config
 export default defineConfig({
     site:"https://taisan11.f5.si",
-    integrations:[UnoCSS(), sitemap(), playformCompress(), aaa(), robotsTxt({policy:[{userAgent:"*",disallow:"/kakusi/*"}]}), buildSizeLogger(), mdx()],
+    integrations:[UnoCSS(), sitemap(), playformCompress(), aaa(), robotsTxt({policy:[{userAgent:"*",disallow:["/kakusi/*","/cdn-cgi/*"]}]}), buildSizeLogger(), mdx()],
     markdown: {
       remarkPlugins: [
         remarkbreaks,
