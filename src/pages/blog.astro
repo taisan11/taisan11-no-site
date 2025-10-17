@@ -1,101 +1,137 @@
 ---
-import { getCollection } from 'astro:content';
-import type { CollectionEntry,AnyEntryMap } from 'astro:content';
+import { getCollection } from "astro:content";
+import type { CollectionEntry, AnyEntryMap } from "astro:content";
 import Layout from "../layouts/layout.astro";
-const posts = await getCollection('blog');
-const zenn: CollectionEntry<keyof AnyEntryMap>[] = await getCollection('zenn');
+const posts = await getCollection("blog");
+const zenn: CollectionEntry<keyof AnyEntryMap>[] = await getCollection("zenn");
 
 //軽量化
-const intl = new Intl.DateTimeFormat('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' });
-const toLocaleDateString = (date:Date) => {
-  return intl.format(date);
+const intl = new Intl.DateTimeFormat("ja-JP", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+});
+const toLocaleDateString = (date: Date) => {
+    return intl.format(date);
 };
-
 ---
 
 <Layout>
-  <div class="Noyokonaga">
-    <h1>Blog一覧</h1>
-    <div class="card-list">
-      {posts.map(post => (
-        <a href={`/blog/${post.id}/`} class="card" style="text-decoration: none; color: inherit;">
-          <div>
-            <div class="card-title">{post.data.title}</div>
-            <p class="card-body">{post.data.description || post.body?.slice(0, 40)}</p>
-            <p class="date">{toLocaleDateString(post.data.date!)}</p>
-          </div>
-        </a>
-      ))}
+    <div class="Noyokonaga">
+        <h1>Blog一覧</h1>
+        <div class="card-list">
+            {
+                posts.map((post) => (
+                    <a
+                        href={`/blog/${post.id}/`}
+                        class="card"
+                        style="text-decoration: none; color: inherit;"
+                    >
+                        <div>
+                            <div class="card-title">{post.data.title}</div>
+                            <p class="card-body">
+                                {post.data.description ||
+                                    post.body?.slice(0, 40)}
+                            </p>
+                            <p class="date">
+                                {toLocaleDateString(post.data.date!)}
+                            </p>
+                        </div>
+                    </a>
+                ))
+            }
+        </div>
+        <h1 style="margin-top: 4rem;">Zenn記事一覧</h1>
+        <div class="card-list">
+            {zenn.map((post) => {
+                    // Safely resolve a link/url from the union-shaped post.data without relying on a property that may not exist.
+                    const href = String(
+                        (post.data as any).link ??
+                            (post.data as any).url ??
+                            "#",
+                    );
+                    const pubDateRaw =
+                        (post.data as any).pubDate ??
+                        (post.data as any).date ??
+                        (post.data as any).updated ??
+                        null;
+                    const pubDateObj = pubDateRaw ? new Date(pubDateRaw) : null;
+                    const pubDateText =
+                        toLocaleDateString(pubDateObj as Date) || "";
+                    return (
+                        <a
+                            href={href}
+                            class="card"
+                            style="text-decoration: none; color: inherit;"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            <div>
+                                <div class="card-title">{post.data.title}</div>
+                                <p class="card-body">
+                                    {post.data.description!.slice(0, 30) ||
+                                        post.body?.slice(0, 10)}
+                                </p>
+                                {pubDateText && (
+                                    <p class="date">{pubDateText}</p>
+                                )}
+                            </div>
+                        </a>
+                    );
+                })
+            }
+        </div>
     </div>
-    <h1 style="margin-top: 4rem;">Zenn記事一覧</h1>
-    <div class="card-list">
-      {zenn.map(post => {
-        // Safely resolve a link/url from the union-shaped post.data without relying on a property that may not exist.
-        const href = String((post.data as any).link ?? (post.data as any).url ?? '#');
-        const pubDateRaw = (post.data as any).pubDate ?? (post.data as any).date ?? (post.data as any).updated ?? null;
-        const pubDateObj = pubDateRaw ? new Date(pubDateRaw) : null;
-        const pubDateText = toLocaleDateString(pubDateObj as Date) || '';
-        return (
-        <a href={href} class="card" style="text-decoration: none; color: inherit;" target="_blank" rel="noopener noreferrer">
-          <div>
-            <div class="card-title">{post.data.title}</div>
-            <p class="card-body">{post.data.description!.slice(0, 30) || post.body?.slice(0, 10)}</p>
-            {pubDateText && <p class="date">{pubDateText}</p>}
-          </div>
-        </a>
-        );
-      })}
-  </div>
 </Layout>
 
 <style is:global>
-  .card-list {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 1.5rem;
-    /* margin-top: 1.5rem; */
-  }
-  @media (orientation: landscape) {
     .card-list {
-      grid-template-columns: repeat(2, 1fr);
-      gap: 6rem; /* カード間の隙間を広げる */
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 1rem;
+        /* margin-top: 1.5rem; */
     }
-    .Noyokonaga {
-      margin: auto 20vw;
+    @media (orientation: landscape) {
+        .card-list {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 2rem; /* カード間の隙間を広げる */
+        }
+        .Noyokonaga {
+            margin: auto 20vw;
+        }
     }
-  }
-  .card {
-    background: rgb(35, 42, 51);
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    padding: 1rem;
-    /* width: 100%; */
-    max-width: 100%;
-    display: flex;
-    flex-direction: column;
-    transition: box-shadow 0.2s;
-  }
-  .card:hover {
-    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-  }
-  .card-title {
-    font-size: 1.4rem;
-    font-weight: bold;
-    color:#71c479;
-    /* font-weight: 700; */
-    text-decoration: none;
-    margin-bottom: 0.3rem;
-  }
-  .card-body {
-    color: #CCCCCC;
-    font-size: 1rem;
-    margin: 0;
-  }
-  .date {
-    color: #999;
-    font-size: 0.9rem;
-    margin-top: 0.5rem;
-    margin-bottom: 0;
-    text-align: right;
-  }
+    .card {
+        background: rgb(35, 42, 51);
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        padding: 1rem;
+        /* width: 100%; */
+        max-width: 100%;
+        display: flex;
+        flex-direction: column;
+        transition: box-shadow 0.2s;
+    }
+    .card:hover {
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    }
+    .card-title {
+        font-size: 1.4rem;
+        font-weight: bold;
+        color: #71c479;
+        /* font-weight: 700; */
+        text-decoration: none;
+        margin-bottom: 0.3rem;
+    }
+    .card-body {
+        color: #cccccc;
+        font-size: 1rem;
+        margin: 0;
+    }
+    .date {
+        color: #999;
+        font-size: 0.9rem;
+        margin-top: 0.5rem;
+        margin-bottom: 0;
+        text-align: right;
+    }
 </style>
