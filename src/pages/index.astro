@@ -8,35 +8,81 @@ import Twitter from "../icons/twitter.svg";
 ---
 
 <Layout title="taisan11のサイト">
-  <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 50vh; max-width: 100vw; position: relative;">
-    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; margin-bottom: 10vh;">
+  <div
+    style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 50vh; max-width: 100vw; position: relative;"
+  >
+    <div
+      style="display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; margin-bottom: 10vh;"
+    >
       <h1 class="text-5xl p-0 m-0">taisan11</h1>
-      <p class="p-0 m-0 text-xl" style="color:#929ec9; text-align: center;" id="message">Hey!!</p>
+      <p
+        class="p-0 m-0 text-xl"
+        style="color:#929ec9; text-align: center;"
+        id="message"
+      >
+        Hey!!
+      </p>
     </div>
-    <div style="position: absolute; bottom: 0; width: 100%; display: flex; justify-content: center; margin-bottom: 0;">
-      <span style="font-size: 1.2rem; color: #cfcfcf; padding: 0.3rem 0.8rem; box-shadow: 0 1px 4px #0001;">
-        <span class="font-bold text-2xl" style="color:#dbdbdb;">A</span>ccess: <span style="font-size:1.2rem; font-weight: normal;">12345</span>
+    <div
+      style="position: absolute; bottom: 0; width: 100%; display: flex; justify-content: center; margin-bottom: 0;"
+    >
+      <span
+        style="font-size: 1.2rem; color: #cfcfcf; padding: 0.3rem 0.8rem; box-shadow: 0 1px 4px #0001;"
+      >
+        <span class="font-bold text-2xl" style="color:#dbdbdb;">A</span>ccess: <span
+          style="font-size:1.2rem; font-weight: normal;"
+          id="a-counter">12345</span
+        >
       </span>
     </div>
   </div>
-  <hr style="border: none; border-top: 2px solid #cccccc87; width: 100%; margin: 2rem auto;"/>
+  <hr
+    style="border: none; border-top: 2px solid #cccccc87; width: 100%; margin: 2rem auto;"
+  />
   <div class="Noyokonaga">
     <h2 id="Contact">Contact</h2>
     <p>ここに乗ってるもの以外は偽物だと思います</p>
     <p>email: .....?</p>
     <h4>SNS</h4>
-    <div class="top" style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem; align-items: center;">
-      <SNSButton icon={GitHub} themeColor="#181717" href="https://github.com/taisan11"/>
-      <SNSButton icon={Twitter} themeColor="#1D9BF0" href="https://x.com/taisan11_"/>
-      <SNSButton icon={Zenn} themeColor="#3EA8FF" href="https://zenn.dev/taisan11"/>
-      <button id="sns-toggle" style="background: none; border: none; cursor: pointer; padding: 0;width: 48px;height: 48px;border-radius: 14px;">
-        <span id="sns-arrow" style="display: inline-block; transition: transform 0.2s;font-size: 2.1rem;color: #a2a2a2;font-weight: bold;text-shadow: 0 2px 8px #0003;">↓</span>
+    <div
+      class="top"
+      style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem; align-items: center;"
+    >
+      <SNSButton
+        icon={GitHub}
+        themeColor="#181717"
+        href="https://github.com/taisan11"
+      />
+      <SNSButton
+        icon={Twitter}
+        themeColor="#1D9BF0"
+        href="https://x.com/taisan11_"
+      />
+      <SNSButton
+        icon={Zenn}
+        themeColor="#3EA8FF"
+        href="https://zenn.dev/taisan11"
+      />
+      <button
+        id="sns-toggle"
+        style="background: none; border: none; cursor: pointer; padding: 0;width: 48px;height: 48px;border-radius: 14px;"
+      >
+        <span
+          id="sns-arrow"
+          style="display: inline-block; transition: transform 0.2s;font-size: 2.1rem;color: #a2a2a2;font-weight: bold;text-shadow: 0 2px 8px #0003;"
+          >↓</span
+        >
       </button>
     </div>
-    <div id="sns-accordion" style="display: none; flex-direction: column; gap: 0.2rem; margin-bottom: 0.5rem;">
+    <div
+      id="sns-accordion"
+      style="display: none; flex-direction: column; gap: 0.2rem; margin-bottom: 0.5rem;"
+    >
       <A href="https://taisan11.hatenablog.com/">HatenaBlog</A>
       <A href="https://pawoo.net/web/accounts/7020633">pawoo: @taisan11</A>
-      <A href="https://bsky.app/profile/taisan11.bsky.social">BlueSky: @taisan11.bsky.social</A>
+      <A href="https://bsky.app/profile/taisan11.bsky.social"
+        >BlueSky: @taisan11.bsky.social</A
+      >
       <A href="https://www.wantedly.com/users/1345793">Wantedly: @taisan11</A>
       <A href="https://qiita.com/taisan11">Qiita: @taisan11</A>
     </div>
@@ -54,16 +100,35 @@ import Twitter from "../icons/twitter.svg";
     </table>
     <h2>依頼について</h2>
     <p>
-      依頼は主に、Webアプリやツール系を受けつています。<br/>
-      また、軽い動画編集なども行えます<br/>
+      依頼は主に、Webアプリやツール系を受けつています。<br />
+      また、軽い動画編集なども行えます<br />
       意外となんでもできるのでXのDMに相談してみてください!!
     </p>
     <h2>相互リンク</h2>
     <p>とりあえず僕のリンクは画像なしです(怠惰)</p>
     <A href="https://taisan11.f5.si/">taisan11のサイト</A><br />
-    <a href="https://sakana11.org/"><img src="https://cdn.sakana11.org/new-banner.png" alt="sakana11のバナー"/></a>
+    <a href="https://sakana11.org/"
+      ><img
+        src="https://cdn.sakana11.org/new-banner.png"
+        alt="sakana11のバナー"
+      /></a
+    >
   </div>
 </Layout>
+
+<script>
+  const counterEl = document.getElementById("a-counter");
+
+  const res = await fetch("/counter", {
+    credentials: "include",
+    cache: "force-cache",
+  });
+
+  if (!res.ok) console.error("Failed to fetch counter:", res.statusText);
+
+  const data = await res.json();
+  counterEl!.textContent = (data as { count: number }).count.toString();
+</script>
 
 <script>
   const el = document.getElementById("message");

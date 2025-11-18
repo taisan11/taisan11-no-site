@@ -1,5 +1,6 @@
 // Astro
 import { defineConfig } from 'astro/config';
+import cloudflare from "@astrojs/cloudflare";
 import UnoCSS from 'unocss/astro'
 import sitemap from '@astrojs/sitemap';
 import playformCompress from '@playform/compress';
@@ -66,40 +67,48 @@ const lastCommit = await new Promise<Commit>((resolve, reject) => {
 
 // https://astro.build/config
 export default defineConfig({
-    site:"https://taisan11.f5.si",
-    integrations:[UnoCSS(), sitemap(), playformCompress(), aaa(), robotsTxt({policy:[{userAgent:"*",disallow:["/kakusi/*","/cdn-cgi/*"]}]}), buildSizeLogger(), mdx()],
-    markdown: {
-      remarkPlugins: [
-        remarkbreaks,
-        [
-          remarkEmbed,
-          {
-            transformers: [youTubeTransformer, googleSlidesTransformer, oEmbedTransformer],
-          } satisfies RemarkEmbedOptions,
-        ],
-        remarkLinkCard
+  site:"https://taisan11.f5.si",
+  integrations:[UnoCSS(), sitemap(), playformCompress(), aaa(), robotsTxt({policy:[{userAgent:"*",disallow:["/kakusi/*","/cdn-cgi/*"]}]}), buildSizeLogger(), mdx()],
+
+  output:"static",
+
+  markdown: {
+    remarkPlugins: [
+      remarkbreaks,
+      [
+        remarkEmbed,
+        {
+          transformers: [youTubeTransformer, googleSlidesTransformer, oEmbedTransformer],
+        } satisfies RemarkEmbedOptions,
       ],
-      rehypePlugins: [rehypeexternallinks, slug, autolink({behavior: 'wrap'})],
-    },
-    vite:{
-        css:{
-            transformer:import.meta.env.DEV?undefined:"lightningcss",
-            // lightningcss:{
-            //     targets:""
-            // }
-        },
-        plugins: [
-            {
-              name: 'replace-text',
-              transform(code) {
-                    return code.replace(/AcommitIDA/g, lastCommit.hash.substring(0, 6)).replace(/AcommitAuthorNameA/g, lastCommit.author.name);
-              }
+      remarkLinkCard
+    ],
+    rehypePlugins: [rehypeexternallinks, slug, autolink({behavior: 'wrap'})],
+  },
+
+  vite:{
+      css:{
+          transformer:"lightningcss",
+          // lightningcss:{
+          //     targets:""
+          // }
+      },
+      plugins: [
+          {
+            name: 'replace-text',
+            transform(code) {
+                  return code.replace(/AcommitIDA/g, lastCommit.hash.substring(0, 6)).replace(/AcommitAuthorNameA/g, lastCommit.author.name);
             }
-        ],
-        build:{
-            // cssCodeSplit:true,
-            cssMinify:import.meta.env.DEV?undefined:"lightningcss"
-        }
-    },
-    prefetch:true
+          }
+      ],
+      build:{
+          // cssCodeSplit:true,
+          cssMinify:"lightningcss"
+      }
+  },
+
+  prefetch:true,
+  adapter: cloudflare({
+    imageService:"compile"
+  })
 });
