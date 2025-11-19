@@ -2,12 +2,20 @@ import type { APIRoute } from 'astro';
 
 export const prerender = false;  // ← これを書くとこのページだけ動的になる（Hybridの肝）
 
+function validUserAgent(userAgent: string | null): boolean {
+    if (!userAgent) return false;
+    const ua = userAgent.trim().toLowerCase();
+    // 最初に "Mozilla/5.0" がない場合は false
+    if (!ua.startsWith("mozilla/5.0")) return false;
+    return true;
+}
+
 export const GET: APIRoute = async ({ locals, cookies, request }) => {
     const kv: KVNamespace = locals.runtime.env.counter;
 
     // determine/count
     let count: number;
-    if (cookies.get("session_id") && await kv.get(`session_${cookies.get("session_id")?.value}`)) {
+    if (validUserAgent(request.headers.get("user-agent")) === false|| cookies.get("session_id") || await kv.get(`session_${cookies.get("session_id")?.value}`)) {
         // セッションがある場合はカウントしない
         count = Number(await kv.get("count") ?? "0");
     } else {
@@ -16,8 +24,8 @@ export const GET: APIRoute = async ({ locals, cookies, request }) => {
         await kv.put("count", count.toString());
         // 一時間の間は再カウントしない
         const session_id = crypto.randomUUID();
-        await kv.put(`session_${session_id}`, "1", { expirationTtl: 60 * 60 });
-        cookies.set("session_id", session_id, { httpOnly: true, sameSite: "lax", maxAge: 60 * 60 });
+        await kv.put(`session_${session_id}`, "1", { expirationTtl: 60 * 30 });
+        cookies.set("session_id", session_id, { httpOnly: true, sameSite: "lax", maxAge: 60 * 30 });
     }
 
     // ETag + caching headers
