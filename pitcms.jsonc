@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "media": {
+    "storagePath": "public/images",
+    "publicPath": "/images"
+  },
+  "collections": [
+    {
+      "name": "blog",
+      "label": "ブログ記事",
+      "description": "taisan11のブログ記事",
+      "path": "src/blog",
+      "extension": "md",
+      "fields": [
+        {
+          "type": "text",
+          "name": "title",
+          "label": "タイトル",
+          "required": true,
+          "note": "ブログ記事のタイトル"
+        },
+        {
+          "type": "textarea",
+          "name": "description",
+          "label": "説明",
+          "maxLength": 300,
+          "note": "記事の概要（最大300文字）"
+        },
+        {
+          "type": "date",
+          "name": "date",
+          "label": "公開日",
+          "required": true,
+          "includeTime": false,
+          "note": "ブログ記事の公開日"
+        },
+        {
+          "type": "richtext",
+          "name": "content",
+          "label": "本文",
+          "required": true
+        }
+      ],
+      "layout": [
+        ["title"],
+        ["description"],
+        ["date"],
+        ["content"]
+      ],
+      "pit": {
+        "title": "title",
+        "body": "content"
+      }
+    }
+  ]
+}
