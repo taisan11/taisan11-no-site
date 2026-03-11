@@ -68,7 +68,9 @@ const lastCommit = await new Promise<Commit>((resolve, reject) => {
 // https://astro.build/config
 export default defineConfig({
   site:"https://taisan11.f5.si",
-  integrations:[UnoCSS(), sitemap({filter: (page) => !page.includes("/kakusi/") && !page.includes("/cdn-cgi/")}), playformCompress(), aaa(), robotsTxt({policy:[{userAgent:"*",disallow:["/kakusi/*","/cdn-cgi/*"]}],sitemap:"https://taisan11.f5.si/sitemap-index.xml"}), buildSizeLogger(), mdx()],
+  integrations:[UnoCSS(), sitemap({filter: (page) => !page.includes("/kakusi/") && !page.includes("/cdn-cgi/")}), playformCompress(), aaa(), robotsTxt({policy:[{userAgent:"*",disallow:["/kakusi/*","/cdn-cgi/*"]}],sitemap:"https://taisan11.f5.si/sitemap-index.xml"}), 
+  // buildSizeLogger()
+  , mdx()],
 
   output:"static",
 
@@ -103,7 +105,7 @@ export default defineConfig({
       ],
       build:{
           // cssCodeSplit:true,
-          cssMinify:"lightningcss"
+          // cssMinify:"lightningcss"
       }
   },
 
