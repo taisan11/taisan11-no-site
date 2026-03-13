@@ -27,6 +27,7 @@
     "@remark-embedder/cache": "^2.1.0",
     "@remark-embedder/core": "^3.0.3",
     "@remark-embedder/transformer-oembed": "^5.0.1",
+    "@unocss/astro": "^66.6.6",
     "git-last-commit": "^1.0.1",
     "lightningcss": "^1.32.0",
     "rehype-autolink-headings": "^7.1.0",
