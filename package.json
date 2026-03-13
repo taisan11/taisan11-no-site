@@ -10,12 +10,12 @@
     "type-gen": "wrangler types"
   },
   "dependencies": {
-    "@astrojs/cloudflare": "13.0.2",
+    "@astrojs/cloudflare": "13.1.1",
     "@astrojs/mdx": "5.0.0",
     "@astrojs/sitemap": "3.7.1",
-    "@playform/compress": "^0.2.1",
+    "@playform/compress": "^0.2.2",
     "@taisan11/vite-plugin-budoux-build": "npm:@jsr/taisan11__vite-plugin-budoux-build",
-    "astro": "6.0.2",
+    "astro": "6.0.4",
     "astro-robots-txt": "^1.0.0",
     "remark-breaks": "^4.0.0",
     "remark-link-card-plus": "^0.7.3",
@@ -28,10 +28,10 @@
     "@remark-embedder/core": "^3.0.3",
     "@remark-embedder/transformer-oembed": "^5.0.1",
     "git-last-commit": "^1.0.1",
-    "lightningcss": "^1.31.1",
+    "lightningcss": "^1.32.0",
     "rehype-autolink-headings": "^7.1.0",
     "rehype-external-links": "^3.0.0",
     "rehype-slug": "^6.0.0",
-    "unocss": "^66.6.0"
+    "unocss": "^66.6.6"
   }
 }

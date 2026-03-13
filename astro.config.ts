@@ -67,8 +67,8 @@ const lastCommit = await new Promise<Commit>((resolve, reject) => {
 
 // https://astro.build/config
 export default defineConfig({
-  site:"https://taisan11.f5.si",
-  integrations:[UnoCSS(), sitemap({filter: (page) => !page.includes("/kakusi/") && !page.includes("/cdn-cgi/")}), playformCompress(), aaa(), robotsTxt({policy:[{userAgent:"*",disallow:["/kakusi/*","/cdn-cgi/*"]}],sitemap:"https://taisan11.f5.si/sitemap-index.xml"}), 
+  site:"https://taisan11.dev",
+  integrations:[UnoCSS(), sitemap({filter: (page) => !page.includes("/kakusi/") && !page.includes("/cdn-cgi/")}), playformCompress(), aaa(), robotsTxt({policy:[{userAgent:"*",disallow:["/kakusi/*","/cdn-cgi/*"]}],sitemap:"https://taisan11.dev/sitemap-index.xml"}),
   // buildSizeLogger()
   , mdx()],
 

@@ -15,7 +15,7 @@
 	},
 	"routes": [
 		{
-			"pattern": "taisan11.f5.si",
+			"pattern": "taisan11.dev",
 			"custom_domain": true
 		}
 	],
