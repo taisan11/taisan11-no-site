@@ -1,4 +1,5 @@
 import type { APIRoute } from 'astro';
+import { env } from "cloudflare:workers
 
 export const prerender = false;  // ← これを書くとこのページだけ動的になる（Hybridの肝）
 
@@ -11,7 +12,7 @@ function validUserAgent(userAgent: string | null): boolean {
 }
 
 export const GET: APIRoute = async ({ locals, cookies, request }) => {
-    const kv: KVNamespace = locals.runtime.env.counter;
+    const kv: KVNamespace = env.counter;
 
     // determine/count
     let count: number;
@@ -58,7 +59,7 @@ export const GET: APIRoute = async ({ locals, cookies, request }) => {
 
 // 必要ならPOSTでも受け付けられる
 export const POST: APIRoute = async ({ request, locals }) => {
-    const kv: KVNamespace = locals.runtime.env.counter;
+    const kv: KVNamespace = env.counter;
     let count = Number(await kv.get("count") ?? "0");
     count += 1;
     await kv.put("count", count.toString());
