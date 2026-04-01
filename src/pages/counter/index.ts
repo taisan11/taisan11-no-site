@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { env } from "cloudflare:workers
+import { env } from "cloudflare:workers";
 
 export const prerender = false;  // ← これを書くとこのページだけ動的になる（Hybridの肝）
 
