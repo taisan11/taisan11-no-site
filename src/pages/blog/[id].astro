@@ -13,9 +13,6 @@ export async function getStaticPaths() {
 // 2. For your template, you can get the entry directly from the prop
 const { post } = Astro.props;
 const { Content, headings } = await render(post);
-console.log('Post:', post);
-console.log('Content:', Content);
-console.log('Headings:', headings);
 
 // import { Callout, CalloutTitle } from "@/components/Elements/Callout"
 // import { CodeBlock } from "@/components/Elements/CodeBlock"
@@ -44,7 +41,7 @@ console.log('Headings:', headings);
       </div>
     </details>
   </div>
-  <article class="prose col-start-2 max-w-none">
+  <article class="prose prose-neutral prose-sky max-w-none">
     {Content && <Content />}
   </article>
 </Layout>
