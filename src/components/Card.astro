@@ -1,6 +1,14 @@
 ---
 const {} = Astro.props
 ---
-<div class="border rounded">
-    <slot>
+<div class="card-frame">
+    <slot />
 </div>
+
+<style>
+    .card-frame {
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        border-radius: 8px;
+        padding: 0.75rem;
+    }
+</style>

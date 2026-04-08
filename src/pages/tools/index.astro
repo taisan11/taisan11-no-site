@@ -12,7 +12,7 @@ import A from "../../components/A.astro";
       <A href="#">Diff →</A><br/>
       <A href="#">文字量 →</A><br/>
       <A href="#">文字化け →</A><br/>
-      <A href="#">Base64 →</A><br/>
+      <A href="/tools/base64">Base64 →</A><br/>
       <h2>その他</h2>
       <A href="/tools/nokoriM">今月の残り →</A><br/>
   </div>
@@ -25,7 +25,8 @@ import A from "../../components/A.astro";
     }
     @media (orientation: landscape) {
         .nue {
-            weight: 50vw
+            width: 50vw;
+            margin: 0 auto;
         }
     }
 </style>

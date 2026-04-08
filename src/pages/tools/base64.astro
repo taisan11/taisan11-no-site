@@ -1,0 +1,82 @@
+---
+import Layout from "../../layouts/layout.astro";
+import A from "../../components/A.astro";
+---
+
+<Layout title="taisan11のサイト">
+    <div class="nue">
+      <A href="/tools">← 戻る</A><br/>
+      <div class="c">
+          <h2>Base 64 エンコード/デコード</h2>
+          <div class="yoko">
+              <textarea id="mae" name="mae" rows="5" cols="33"></textarea>
+              <div class="tate">
+                  <button id="enc">エンコード→</button>
+                  <button id="dec">←デコード</button>
+              </div>
+              <textarea id="ato" name="ato" rows="5" cols="33"></textarea>
+          </div>
+      </div>
+  </div>
+</Layout>
+
+<script>
+const mae = document.getElementById("mae")
+const ato = document.getElementById("ato")
+const enc = document.getElementById("enc")
+const dec = document.getElementById("dec")
+
+function encodeBase64(str) {
+  const bytes = new TextEncoder().encode(str)
+  let binary = ""
+  bytes.forEach(b => binary += String.fromCharCode(b))
+  return btoa(binary)
+}
+
+function decodeBase64(base64) {
+  const binary = atob(base64)
+  const bytes = Uint8Array.from(binary, c => c.charCodeAt(0))
+  return new TextDecoder().decode(bytes)
+}
+
+enc.onclick = () => {
+  ato.value = encodeBase64(mae.value)
+}
+
+dec.onclick = () => {
+  mae.value = decodeBase64(ato.value)
+}
+</script>
+
+<style is:global>
+    .nue {}
+    .yoko {
+        display:flex;
+    }
+    .tate {
+        display:block
+    }
+    .c {
+        text-align: center;
+    }
+    /*最初の二桁*/
+    .twoketa {
+        color:#81E4DA;
+        font-size:3rem
+    }
+    .syosu {
+        font-size:1.2rem
+    }
+    #nokori {
+        font-size:2rem
+    }
+    h1 {
+        text-align: center
+    }
+    @media (orientation: landscape) {
+        .nue {
+            width: 50vw;
+            margin: 0 auto;
+        }
+    }
+</style>

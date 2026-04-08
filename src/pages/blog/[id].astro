@@ -41,7 +41,7 @@ const { Content, headings } = await render(post);
       </div>
     </details>
   </div>
-  <article class="prose prose-neutral prose-sky max-w-none">
+  <article class="article-content">
     {Content && <Content />}
   </article>
 </Layout>
@@ -79,7 +79,7 @@ const { Content, headings } = await render(post);
   :root {
     color:aliceblue;
   }
-  article {
+  .article-content {
     margin: 2rem 0;
     font-size: 110%;
     /* letter-spacing: 0.02em; */
@@ -87,7 +87,7 @@ const { Content, headings } = await render(post);
     /* line-height: 1.6; */
   }
   @media (orientation: landscape) {
-    article {
+    .article-content {
       margin: auto 25vw;
     }
   }

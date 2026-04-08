@@ -5,7 +5,7 @@ import A from "../../components/A.astro";
 
 <Layout title="taisan11のサイト">
     <div class="nue">
-      <A here="/tools">← 戻る</A><br/>
+      <A href="/tools">← 戻る</A><br/>
       <div class="c">
           <h2 id="nokori">今月は残り <span class="twoketa">xx</span>.<span class="syosu">xxxxxxxxxx</span>%</h2>
           <p>Github Copilotの使用量の目安にでもしてください。</p>
@@ -58,7 +58,8 @@ window.onload = () => {
     }
     @media (orientation: landscape) {
         .nue {
-            weight: 50vw
+            width: 50vw;
+            margin: 0 auto;
         }
     }
 </style>

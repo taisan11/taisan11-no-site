@@ -9,12 +9,41 @@ interface Props {
 const {name,repo,links,mainlink} = Astro.props;
 ---
 
-<div class="border rounded">
-    <h2 class="text-2xl font-bold">{mainlink ? (<a href={mainlink}>{name}</a>) : (name)}</h2>
-    <div class="flex space-x-2 my-0 py-0">
-        <!-- links icons -->
-        <!-- repo link -->
-        {repo ? (<a href={`https://github.com/${repo}`} class="i-mdi-github my-0 py-0 h-8 m-i"/>):null}
+<div class="work-card">
+    <h2 class="work-title">{mainlink ? (<a href={mainlink}>{name}</a>) : (name)}</h2>
+    <div class="work-links">
+        {repo ? (<a href={`https://github.com/${repo}`} class="repo-link">GitHub</a>):null}
     </div>
-    <slot>
+    <slot />
 </div>
+
+<style>
+    .work-card {
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        border-radius: 8px;
+        padding: 0.75rem;
+        margin-bottom: 0.8rem;
+        background: rgba(0, 0, 0, 0.08);
+    }
+    .work-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin: 0;
+    }
+    .work-links {
+        display: flex;
+        gap: 0.5rem;
+        margin: 0.2rem 0;
+        padding: 0;
+    }
+    .repo-link {
+        display: inline-flex;
+        align-items: center;
+        text-decoration: none;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        border-radius: 999px;
+        padding: 0.2rem 0.6rem;
+        font-size: 0.9rem;
+        font-weight: 600;
+    }
+</style>

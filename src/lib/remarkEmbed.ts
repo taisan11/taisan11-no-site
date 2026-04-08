@@ -19,17 +19,30 @@ const defaultRemarkEmbedOptions: Readonly<RemarkEmbedOptions> = {
   transformers: [],
 }
 
+type UnfurlMetadata = Awaited<ReturnType<typeof unfurl>>
+
+const unfurlCache = new Map<string, Promise<UnfurlMetadata | null>>()
+
+const getUnfurlMetadata = async (href: string): Promise<UnfurlMetadata | null> => {
+  const cached = unfurlCache.get(href)
+  if (cached) return cached
+
+  const promise = unfurl(href).catch(() => null)
+  unfurlCache.set(href, promise)
+  return promise
+}
+
 export const oEmbedTransformer: Readonly<Transformer> = {
   hName: "oembed",
   hProperties: async (url) => {
-    const metadata = await unfurl(url.href)
+    const metadata = await getUnfurlMetadata(url.href)
 
-    if (metadata.oEmbed != null) return { oEmbed: JSON.stringify(metadata.oEmbed) }
+    if (metadata?.oEmbed != null) return { oEmbed: JSON.stringify(metadata.oEmbed) }
     return {} as HProperties
   },
   match: async (url) => {
-    const metadata = await unfurl(url.href)
-    return metadata.oEmbed != null
+    const metadata = await getUnfurlMetadata(url.href)
+    return metadata?.oEmbed != null
   },
 }
 
@@ -124,6 +137,8 @@ export const remarkEmbed: Plugin<[RemarkEmbedOptions?], Root> = (options = defau
     const transforms: Promise<void>[] = []
 
     visit(tree, "link", (link, index, paragraph) => {
+      const firstChild = Array.isArray(link.children) ? link.children[0] : undefined
+
       // Check if the paragraph only contains a single url link
       // e.g. OK: `https://example.com/hoge`
       //      NG: `according to example.com/hoge`
@@ -132,13 +147,18 @@ export const remarkEmbed: Plugin<[RemarkEmbedOptions?], Root> = (options = defau
         paragraph?.type !== "paragraph" ||
         paragraph.children.length !== 1 ||
         (link.data?.hName != null && link.data?.hName !== "a") ||
-        link.children.length !== 1 ||
-        link.children[0].type !== "text" ||
-        link.children[0].value !== link.url
+        !firstChild ||
+        firstChild.type !== "text" ||
+        firstChild.value !== link.url
       )
         return
 
-      const url = new URL(link.url)
+      let url: URL
+      try {
+        url = new URL(link.url)
+      } catch {
+        return
+      }
 
       const transform = async () => {
         for (const transformer of options.transformers) {
@@ -158,7 +178,8 @@ export const remarkEmbed: Plugin<[RemarkEmbedOptions?], Root> = (options = defau
       transforms.push(
         transform().catch((e) => {
           const msg = `[ERROR] Failed to embed ${link.url} in ${file.path} at line ${link.position?.start?.line}`
-          file.message(msg + "; " + JSON.stringify(e), link.position, "remarkEmbed")
+          const reason = e instanceof Error ? e.message : String(e)
+          file.message(`${msg}; ${reason}`, link.position, "remarkEmbed")
         }),
       )
     })

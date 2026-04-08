@@ -1,7 +1,6 @@
 // Astro
 import { defineConfig } from 'astro/config';
 import cloudflare from "@astrojs/cloudflare";
-import UnoCSS from 'unocss/astro'
 import sitemap from '@astrojs/sitemap';
 import playformCompress from '@playform/compress';
 import aaa from "@taisan11/vite-plugin-budoux-build/astro"
@@ -68,7 +67,7 @@ const lastCommit = await new Promise<Commit>((resolve, reject) => {
 // https://astro.build/config
 export default defineConfig({
   site:"https://taisan11.dev",
-  integrations:[UnoCSS(), sitemap({filter: (page) => !page.includes("/kakusi/") && !page.includes("/cdn-cgi/")}), playformCompress(), aaa(), robotsTxt({policy:[{userAgent:"*",disallow:["/kakusi/*","/cdn-cgi/*"]}],sitemap:"https://taisan11.dev/sitemap-index.xml"}),
+  integrations:[sitemap({filter: (page) => !page.includes("/kakusi/") && !page.includes("/cdn-cgi/")}), playformCompress(), aaa(), robotsTxt({policy:[{userAgent:"*",disallow:["/kakusi/*","/cdn-cgi/*"]}],sitemap:"https://taisan11.dev/sitemap-index.xml"}),
   // buildSizeLogger()
   , mdx()],
 
