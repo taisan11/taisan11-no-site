@@ -1,0 +1,156 @@
+---
+import Layout from '../../layouts/Layout.astro';
+
+const releaseDate = new Date('2026-07-23T00:00:00').getTime();
+---
+
+<Layout title="レイダース カウントダウン">
+  <main>
+    <section class="countdown-container">
+      <h1>スプラトゥーンレイダース発売まで</h1>
+      <p class="release-info">発売日：2026年7月23日</p>
+
+      <div class="countdown" id="countdown">
+        <div class="countdown-item">
+          <span class="countdown-value" id="months">0</span>
+          <span class="countdown-label">月</span>
+        </div>
+        <div class="countdown-item">
+          <span class="countdown-value" id="days">0</span>
+          <span class="countdown-label">日</span>
+        </div>
+        <div class="countdown-item">
+          <span class="countdown-value" id="minutes">0</span>
+          <span class="countdown-label">分</span>
+        </div>
+        <div class="countdown-item">
+          <span class="countdown-value" id="seconds">0</span>
+          <span class="countdown-label">秒</span>
+        </div>
+      </div>
+
+      <p class="countdown-status" id="status"></p>
+    </section>
+  </main>
+</Layout>
+
+<script define:vars={{ releaseDate }}>
+  function updateCountdown() {
+    const now = new Date().getTime();
+    const timeLeft = releaseDate - now;
+
+    if (timeLeft <= 0) {
+      document.getElementById('countdown').innerHTML = '<p style="font-size: 24px; text-align: center; color: #e74c3c;">発売開始！</p>';
+      document.getElementById('status').textContent = 'スプラレイダースは発売中です！';
+      return;
+    }
+
+    // 全体の秒数
+    const totalSeconds = Math.floor(timeLeft / 1000);
+
+    // 残り時間を計算
+    const months = Math.floor(totalSeconds / (86400 * 30.44)); // 平均月を使用
+    const daysInMonth = Math.floor((totalSeconds % (86400 * 30.44)) / 86400);
+    const hoursInDay = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    document.getElementById('months').textContent = months;
+    document.getElementById('days').textContent = daysInMonth;
+    document.getElementById('minutes').textContent = minutes;
+    document.getElementById('seconds').textContent = seconds;
+  }
+
+  // 初期表示
+  updateCountdown();
+
+  // 1秒ごとに更新
+  setInterval(updateCountdown, 1000);
+</script>
+
+<style>
+  main {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+  }
+
+  .countdown-container {
+    text-align: center;
+    padding: 3rem 2rem;
+    max-width: 80vw;
+    color: white;
+  }
+
+  h1 {
+    font-size: 2.5rem;
+    margin: 0 0 0.5rem 0;
+    font-weight: 700;
+  }
+
+  .release-info {
+    font-size: 1.1rem;
+    margin: 0 0 2rem 0;
+    opacity: 0.9;
+  }
+
+  .countdown {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 1rem;
+    margin: 2rem 0;
+  }
+
+  .countdown-item {
+    background: rgba(255, 255, 255, 0.15);
+    padding: 1.5rem 1rem;
+    border-radius: 10px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: transform 0.3s ease;
+  }
+
+  .countdown-item:hover {
+    transform: scale(1.05);
+  }
+
+  .countdown-value {
+    display: block;
+    font-size: 2.5rem;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 0.5rem;
+  }
+
+  .countdown-label {
+    display: block;
+    font-size: 1rem;
+    opacity: 0.85;
+    font-weight: 600;
+  }
+
+  .countdown-status {
+    font-size: 1.3rem;
+    margin-top: 2rem;
+    font-weight: 600;
+  }
+
+  @media (max-width: 600px) {
+    .countdown-container {
+      padding: 2rem 1rem;
+    }
+
+    h1 {
+      font-size: 1.8rem;
+    }
+
+    .countdown {
+      gap: 0.75rem;
+    }
+
+    .countdown-value {
+      font-size: 2rem;
+    }
+  }
+</style>
