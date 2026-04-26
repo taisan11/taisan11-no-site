@@ -1,0 +1,77 @@
+---
+import Layout from "../../layouts/layout.astro";
+import A from "../../components/A.astro";
+---
+
+<Layout title="taisan11のサイト">
+    <div class="nue">
+      <A href="/tools">← 戻る</A><br/>
+      <div class="c">
+          <h2>URI (en/de)code</h2>
+          <div class="yoko">
+              <textarea id="mae" name="mae" rows="5" cols="33"></textarea>
+              <div class="tate">
+                  <button id="enc">エンコード→</button>
+                  <button id="dec">←デコード</button>
+              </div>
+              <textarea id="ato" name="ato" rows="5" cols="33"></textarea>
+          </div>
+      </div>
+  </div>
+</Layout>
+
+<script>
+const mae = document.getElementById("mae")
+const ato = document.getElementById("ato")
+const enc = document.getElementById("enc")
+const dec = document.getElementById("dec")
+
+function encodeUri(str) {
+  return encodeURI(str)
+}
+
+function decodeUri(Uri) {
+  return decodeURI(Uri)
+}
+
+enc.onclick = () => {
+  ato.value = encodeUri(mae.value)
+}
+
+dec.onclick = () => {
+  mae.value = decodeUri(ato.value)
+}
+</script>
+
+<style is:global>
+    .nue {}
+    .yoko {
+        display:flex;
+    }
+    .tate {
+        display:block
+    }
+    .c {
+        text-align: center;
+    }
+    /*最初の二桁*/
+    .twoketa {
+        color:#81E4DA;
+        font-size:3rem
+    }
+    .syosu {
+        font-size:1.2rem
+    }
+    #nokori {
+        font-size:2rem
+    }
+    h1 {
+        text-align: center
+    }
+    @media (orientation: landscape) {
+        .nue {
+            width: 50vw;
+            margin: 0 auto;
+        }
+    }
+</style>
