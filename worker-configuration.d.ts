@@ -3,7 +3,7 @@
 // Runtime types generated with workerd@1.20251001.0 2025-11-16 global_fetch_strictly_public,nodejs_compat
 declare namespace Cloudflare {
 	interface Env {
-		counter: KVNamespace;
+		visitor_counter: KVNamespace;
 	}
 }
 interface Env extends Cloudflare.Env {}

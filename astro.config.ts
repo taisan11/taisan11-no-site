@@ -10,9 +10,7 @@ import mdx from "@astrojs/mdx";
 import remarkbreaks from "remark-breaks"
 import rehypeexternallinks from "rehype-external-links"
 import slug from "rehype-slug"
-import autolink from "rehype-autolink-headings"
 import {remarkEmbed,oEmbedTransformer,youTubeTransformer,googleSlidesTransformer, type RemarkEmbedOptions} from "./src/lib/remarkEmbed.ts";
-import remarkLinkCard from "remark-link-card-plus";
 //other
 import type {AstroIntegration} from "astro"
 import {getLastCommit} from "git-last-commit"
@@ -82,9 +80,8 @@ export default defineConfig({
           transformers: [youTubeTransformer, googleSlidesTransformer, oEmbedTransformer],
         } satisfies RemarkEmbedOptions,
       ],
-      remarkLinkCard
     ],
-    rehypePlugins: [rehypeexternallinks, slug, autolink({behavior: 'wrap'})],
+    rehypePlugins: [rehypeexternallinks, slug],
   },
 
   vite:{

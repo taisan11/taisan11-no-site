@@ -12,7 +12,7 @@ function validUserAgent(userAgent: string | null): boolean {
 }
 
 export const GET: APIRoute = async ({ locals, cookies, request }) => {
-    const kv: KVNamespace = env.counter;
+    const kv: KVNamespace = env.visitor_counter;
 
     // determine/count
     let count: number;
@@ -59,7 +59,7 @@ export const GET: APIRoute = async ({ locals, cookies, request }) => {
 
 // 必要ならPOSTでも受け付けられる
 export const POST: APIRoute = async ({ request, locals }) => {
-    const kv: KVNamespace = env.counter;
+    const kv: KVNamespace = env.visitor_counter;
     let count = Number(await kv.get("count") ?? "0");
     count += 1;
     await kv.put("count", count.toString());

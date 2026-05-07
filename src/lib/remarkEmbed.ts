@@ -172,6 +172,7 @@ export const remarkEmbed: Plugin<[RemarkEmbedOptions?], Root> = (options = defau
             ...(await getHProperties(transformer, url)),
             url: link.url,
           }
+          link.children = []
           return
         }
       }
