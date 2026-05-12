@@ -21,7 +21,7 @@ const { Content, headings } = await render(post);
 // import { Code } from "@/components/ui/Code"
 ---
 
-<Layout>
+<Layout title={post.data.title+` | taisan11のブログ`}>
   <div class="meta">
     <h1>{post.data.title}</h1>
     <div>
