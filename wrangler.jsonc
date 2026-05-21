@@ -1,7 +1,7 @@
 {
 	"name": "taisan11-dev",
 	// "main": "dist/_worker.js/index.js",
-	"compatibility_date": "2025-11-16",
+	"compatibility_date": "2026-05-16",
 	"assets": {
 		"directory": "./dist",
 		"not_found_handling": "404-page"

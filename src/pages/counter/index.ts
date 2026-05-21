@@ -1,68 +1,128 @@
-import type { APIRoute } from 'astro';
-import { env } from "cloudflare:workers";
+import type { APIRoute } from "astro";
 
-export const prerender = false;  // ← これを書くとこのページだけ動的になる（Hybridの肝）
+export const prerender = false;
 
 function validUserAgent(userAgent: string | null): boolean {
     if (!userAgent) return false;
+
     const ua = userAgent.trim().toLowerCase();
-    // 最初に "Mozilla/5.0" がない場合は false
-    if (!ua.startsWith("mozilla/5.0")) return false;
+
+    // ブラウザっぽくないUAを除外
+    if (!ua.startsWith("mozilla/5.0")) {
+        return false;
+    }
+
+    // よくあるbotを軽く除外
+    if (
+        ua.includes("bot") ||
+        ua.includes("spider") ||
+        ua.includes("crawler") ||
+        ua.includes("curl") ||
+        ua.includes("wget")
+    ) {
+        return false;
+    }
+
     return true;
 }
 
-export const GET: APIRoute = async ({ locals, cookies, request }) => {
+export const GET: APIRoute = async ({
+    request,
+    cookies,
+    locals,
+}) => {
+    // 最新の Astro Cloudflare adapter では locals.runtime.env を使う
+    const env = locals.runtime.env;
     const kv: KVNamespace = env.visitor_counter;
 
-    // determine/count
-    let count: number;
-    if (validUserAgent(request.headers.get("user-agent")) === false|| cookies.get("session_id") || await kv.get(`session_${cookies.get("session_id")?.value}`)) {
-        // セッションがある場合はカウントしない
-        count = Number(await kv.get("count") ?? "0");
-    } else {
-        count = Number(await kv.get("count") ?? "0");
-        count += 1;
-        await kv.put("count", count.toString());
-        // 一時間の間は再カウントしない
-        const session_id = crypto.randomUUID();
-        await kv.put(`session_${session_id}`, "1", { expirationTtl: 60 * 30 });
-        cookies.set("session_id", session_id, { httpOnly: true, sameSite: "lax", maxAge: 60 * 30 });
+    const sessionId = cookies.get("session_id")?.value;
+
+    let alreadyCounted = false;
+
+    // Cookie がある場合だけ KV 確認
+    if (sessionId) {
+        const exists = await kv.get(`session_${sessionId}`);
+        alreadyCounted = exists === "1";
     }
 
-    // ETag + caching headers
-    const etag = `"${count}"`;
-    const cacheControl = "public, max-age=5, s-maxage=60, stale-while-revalidate=30";
-    const vary = "Cookie";
+    const isValidUA = validUserAgent(
+        request.headers.get("user-agent")
+    );
 
-    // handle conditional request
-    const ifNoneMatch = request.headers.get("if-none-match");
-    if (ifNoneMatch && ifNoneMatch === etag) {
+    let count = Number((await kv.get("count")) ?? "0");
+
+    if (isValidUA && !alreadyCounted) {
+        count += 1;
+
+        // NOTE:
+        // KV は atomic increment がないので
+        // 高トラフィックなら Durable Object or D1 推奨
+        await kv.put("count", String(count));
+
+        const newSessionId = crypto.randomUUID();
+
+        await kv.put(
+            `session_${newSessionId}`,
+            "1",
+            {
+                expirationTtl: 60 * 30,
+            }
+        );
+
+        cookies.set("session_id", newSessionId, {
+            path: "/",
+            httpOnly: true,
+            secure: true,
+            sameSite: "Lax",
+            maxAge: 60 * 30,
+        });
+    }
+
+    const etag = `"${count}"`;
+
+    const ifNoneMatch =
+        request.headers.get("if-none-match");
+
+    if (ifNoneMatch === etag) {
         return new Response(null, {
             status: 304,
             headers: {
-                "Cache-Control": cacheControl,
                 "ETag": etag,
-                "Vary": vary,
+
+                // Cookie で内容が変わるので private
+                "Cache-Control":
+                    "private, max-age=5, stale-while-revalidate=30",
             },
         });
     }
 
-    return new Response(JSON.stringify({ count }), {
-        headers: {
-            "Content-Type": "application/json",
-            "Cache-Control": cacheControl,
-            "ETag": etag,
-            "Vary": vary,
-        },
-    });
+    return Response.json(
+        { count },
+        {
+            headers: {
+                "ETag": etag,
+
+                "Cache-Control":
+                    "private, max-age=5, stale-while-revalidate=30",
+            },
+        }
+    );
 };
 
-// 必要ならPOSTでも受け付けられる
-export const POST: APIRoute = async ({ request, locals }) => {
-    const kv: KVNamespace = env.visitor_counter;
-    let count = Number(await kv.get("count") ?? "0");
-    count += 1;
-    await kv.put("count", count.toString());
+export const POST: APIRoute = async ({
+    locals,
+    request,
+}) => {
+    // 必要ならCSRFや認証を入れる
+    const env = locals.runtime.env;
 
-    return new Response(JSON.stringify({ count }), { status: 200 });
+    const kv: KVNamespace = env.visitor_counter;
+
+    let count = Number((await kv.get("count")) ?? "0");
+
+    count += 1;
+
+    await kv.put("count", String(count));
+
+    return Response.json({ count });
 };

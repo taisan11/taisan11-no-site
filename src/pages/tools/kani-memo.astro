@@ -1,0 +1,31 @@
+---
+import Layout from "../../layouts/layout.astro";
+import A from "../../components/A.astro";
+---
+
+<Layout title="簡易メモ帳">
+    <div class="nue">
+      <A href="/tools">← 戻る</A><br/>
+      <main>
+          <h2>簡易メモ帳</h2>
+          <textarea id="textarea"></textarea>
+      </main>
+  </div>
+</Layout>
+
+<script>
+const area = document.getElementById("textarea")
+area.addEventListener("change", (e) => {
+  localStorage.setItem("memo1",e.target.value);
+});
+window.onload = () => {
+  area.innerText = localStorage.getItem("memo1")
+}
+</script>
+
+<style is:global>
+    .nue {}
+    #textarea {
+        font-size:1.2rem
+    }
+</style>
