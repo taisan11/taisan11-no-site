@@ -9,19 +9,34 @@ import A from "../../components/A.astro";
       <div class="c">
           <h2>QrDrop</h2>
           <p>QRcodeを使ってデータを送信するやつです。</p>
-          <div class="camera">
-            <video id="video" autoplay playsinline muted></video>
-            <canvas id="overlay"></canvas>
+          <select name="mode" id="mode" value="halfauto">
+              <option value="halfauto">半自動</option>
+              <option value="auto">自動</option>
+          </select>
+          <div class="yoko">
+              <div class="upload">
+                  <h3>送信</h3>
+                  <input type="file" name="file" id="file">
+                  <button id="sosin">送信する</button>
+              </div>
+              <div class="download">
+                  <button id="jyusin">受信する</button>
+              </div>
           </div>
-          <button id="Cancel">キャンセル</button>
-          <!-- <input type="text" placeholder="内容を入力" id="text"></input>
-          <button id="GO">生成</button>
-          <div id="qr"></div> -->
       </div>
   </div>
 </Layout>
 
 <script>
+// fileを2000byte事に分割する
+document.getElementById("sosin")!.onclick = (e) => {
+  const files = (document.getElementById("file") as HTMLInputElement).files
+  if (!files||!files.length) {
+    console.error("ファイルが無いよう...")
+    return
+  }
+  const file = files.item(0)
+}
 import {encodeQR} from "qr"
 import {
   QRCanvas,
@@ -59,7 +74,7 @@ document.getElementById("Cancel")!.onclick = () => {
 const img = document.getElementById("qr")!
 document.getElementById("GO")!.onclick = (e) => {
   const text = (document.getElementById("text") as HTMLInputElement).value
-  const qr = encodeQR(text, "svg")
+  const qr = encodeQR(text, "svg",{version:40,ecc:"low"})
   img.innerHTML = qr
 }
 

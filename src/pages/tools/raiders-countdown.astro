@@ -15,9 +15,13 @@ const releaseDate = new Date('2026-07-23T00:00:00').getTime();
           <span class="countdown-value" id="months">0</span>
           <span class="countdown-label">月</span>
         </div>
-        <div class="countdown-item">
+        <div class="countdown-item" id="kyo">
           <span class="countdown-value" id="days">0</span>
           <span class="countdown-label">日</span>
+        </div>
+        <div class="countdown-item">
+          <span class="countdown-value" id="hours">0</span>
+          <span class="countdown-label">時</span>
         </div>
         <div class="countdown-item">
           <span class="countdown-value" id="minutes">0</span>
@@ -35,36 +39,107 @@ const releaseDate = new Date('2026-07-23T00:00:00').getTime();
 </Layout>
 
 <script define:vars={{ releaseDate }}>
-  function updateCountdown() {
-    const now = new Date().getTime();
-    const timeLeft = releaseDate - now;
+  const countdownEl = document.getElementById('countdown');
+  const statusEl = document.getElementById('status');
 
-    if (timeLeft <= 0) {
-      document.getElementById('countdown').innerHTML = '<p style="font-size: 24px; text-align: center; color: #e74c3c;">発売開始！</p>';
-      document.getElementById('status').textContent = 'スプラレイダースは発売中です！';
+  const monthsEl = document.getElementById('months');
+  const daysEl = document.getElementById('days');
+  const hoursEl = document.getElementById('hours');
+  const minutesEl = document.getElementById('minutes');
+  const secondsEl = document.getElementById('seconds');
+  const kyoEl = document.getElementById('kyo');
+
+  let monthsRemoved = false;
+
+  function getDateDiff(from, to) {
+    let current = new Date(from);
+
+    let months = 0;
+
+    // カレンダー基準で月を加算
+    while (true) {
+      const next = new Date(current);
+
+      const originalDay = next.getDate();
+
+      next.setMonth(next.getMonth() + 1);
+
+      // 1/31 → 3/2 のような補正を防止
+      if (next.getDate() !== originalDay) {
+        next.setDate(0);
+      }
+
+      if (next <= to) {
+        current = next;
+        months++;
+      } else {
+        break;
+      }
+    }
+
+    let remaining = to - current;
+
+    const days = Math.floor(remaining / 86400000);
+    remaining %= 86400000;
+
+    const hours = Math.floor(remaining / 3600000);
+    remaining %= 3600000;
+
+    const minutes = Math.floor(remaining / 60000);
+    remaining %= 60000;
+
+    const seconds = Math.floor(remaining / 1000);
+
+    return {
+      months,
+      days,
+      hours,
+      minutes,
+      seconds
+    };
+  }
+
+  function updateCountdown() {
+    const now = new Date();
+    const target = new Date(releaseDate);
+
+    if (target <= now) {
+      countdownEl.innerHTML =
+        '<p style="font-size: 24px; text-align: center; color: #e74c3c;">発売開始！</p>';
+
+      statusEl.textContent =
+        'スプラレイダースは発売中です！';
+
       return;
     }
 
-    // 全体の秒数
-    const totalSeconds = Math.floor(timeLeft / 1000);
+    const diff = getDateDiff(now, target);
 
-    // 残り時間を計算
-    const months = Math.floor(totalSeconds / (86400 * 30.44)); // 平均月を使用
-    const daysInMonth = Math.floor((totalSeconds % (86400 * 30.44)) / 86400);
-    const hoursInDay = Math.floor((totalSeconds % 86400) / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
+    // 月
+    if (diff.months === 0) {
+      if (!monthsRemoved) {
+        monthsEl.outerHTML = '';
+        monthsRemoved = true;
+      }
+    } else {
+      monthsEl.textContent = diff.months;
+    }
 
-    document.getElementById('months').textContent = months;
-    document.getElementById('days').textContent = daysInMonth;
-    document.getElementById('minutes').textContent = minutes;
-    document.getElementById('seconds').textContent = seconds;
+    // 今日判定
+    if (diff.months === 0 && diff.days === 0) {
+        kyoEl.textContent = '今日';
+    } else {
+      daysEl.textContent = diff.days;
+    }
+
+      hoursEl.textContent = diff.hours;
+
+      minutesEl.textContent = diff.minutes;
+
+      secondsEl.textContent = diff.seconds;
   }
 
-  // 初期表示
   updateCountdown();
-
-  // 1秒ごとに更新
   setInterval(updateCountdown, 1000);
 </script>
 
@@ -78,7 +153,7 @@ const releaseDate = new Date('2026-07-23T00:00:00').getTime();
 
   .countdown-container {
     text-align: center;
-    padding: 3rem 2rem;
+    padding: 1rem;
     max-width: 80vw;
     color: white;
   }
@@ -98,17 +173,12 @@ const releaseDate = new Date('2026-07-23T00:00:00').getTime();
   .countdown {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-    gap: 1rem;
-    margin: 2rem 0;
+    gap: 0;
+    margin: 0;
   }
 
   .countdown-item {
-    background: rgba(255, 255, 255, 0.15);
-    padding: 1.5rem 1rem;
-    border-radius: 10px;
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    transition: transform 0.3s ease;
+    padding: 1rem 0;
   }
 
   .countdown-item:hover {
@@ -116,7 +186,7 @@ const releaseDate = new Date('2026-07-23T00:00:00').getTime();
   }
 
   .countdown-value {
-    display: block;
+    /*display: block;*/
     font-size: 2.5rem;
     font-weight: 700;
     line-height: 1;
@@ -124,7 +194,7 @@ const releaseDate = new Date('2026-07-23T00:00:00').getTime();
   }
 
   .countdown-label {
-    display: block;
+    /*display: block;*/
     font-size: 1rem;
     opacity: 0.85;
     font-weight: 600;
@@ -138,7 +208,7 @@ const releaseDate = new Date('2026-07-23T00:00:00').getTime();
 
   @media (max-width: 600px) {
     .countdown-container {
-      padding: 2rem 1rem;
+      padding: 1rem;
     }
 
     h1 {
