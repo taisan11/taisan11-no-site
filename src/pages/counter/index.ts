@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { env } from "cloudflare:workers"
 
 export const prerender = false;
 
@@ -29,10 +30,7 @@ function validUserAgent(userAgent: string | null): boolean {
 export const GET: APIRoute = async ({
     request,
     cookies,
-    locals,
 }) => {
-    // 最新の Astro Cloudflare adapter では locals.runtime.env を使う
-    const env = locals.runtime.env;
     const kv: KVNamespace = env.visitor_counter;
 
     const sessionId = cookies.get("session_id")?.value;
@@ -110,12 +108,8 @@ export const GET: APIRoute = async ({
 };
 
 export const POST: APIRoute = async ({
-    locals,
     request,
 }) => {
-    // 必要ならCSRFや認証を入れる
-    const env = locals.runtime.env;
-
     const kv: KVNamespace = env.visitor_counter;
 
     let count = Number((await kv.get("count")) ?? "0");

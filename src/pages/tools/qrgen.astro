@@ -1,0 +1,51 @@
+---
+import Layout from "../../layouts/layout.astro";
+import A from "../../components/A.astro";
+---
+
+<Layout title="taisan11のサイト">
+    <div class="nue">
+      <A href="/tools">← 戻る</A><br/>
+      <div class="c">
+          <h2>QRCode生成機</h2>
+          <input type="text" placeholder="内容を入力" id="text"></input>
+          <button id="GO">生成</button>
+          <div id="qr"></div>
+      </div>
+  </div>
+</Layout>
+
+<script>
+import {encodeQR} from "qr"
+
+const img = document.getElementById("qr")!
+document.getElementById("GO")!.onclick = (e) => {
+  const text = (document.getElementById("text") as HTMLInputElement).value
+  const qr = encodeQR(text, "svg")
+  img.innerHTML = qr
+}
+
+</script>
+
+<style is:global>
+    .nue {}
+    #qr {
+        background-color: white;
+        width: 90vw;
+        display: flex;
+        justify-content: center; /* 横中央 */
+        align-items: center;     /* 縦中央 */
+    }
+    .c {
+        text-align: center;
+    }
+    @media (orientation: landscape) {
+        .nue {
+            width: 50vw;
+            margin: 0 auto;
+        }
+        #qr {
+            width: 60%;
+        }
+    }
+</style>

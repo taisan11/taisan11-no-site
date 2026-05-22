@@ -1,7 +1,7 @@
 {
 	"name": "taisan11-dev",
 	// "main": "dist/_worker.js/index.js",
-	"compatibility_date": "2026-05-16",
+	"compatibility_date": "2026-05-01",
 	"assets": {
 		"directory": "./dist",
 		"not_found_handling": "404-page"
@@ -10,6 +10,10 @@
 		"nodejs_compat",
 		"global_fetch_strictly_public"
 	],
+	"kv_namespaces":[{
+	"binding":"visitor_counter",
+	"id":"95f9bd0ecf4a4cccb67358e2c5339447"
+	}],
 	"observability": {
 		"enabled": true
 	},
