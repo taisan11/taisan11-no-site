@@ -4,101 +4,424 @@ import A from "../../components/A.astro";
 ---
 
 <Layout title="QrDrop by taisan11">
-    <div class="nue">
-      <A href="/tools">← 戻る</A><br/>
-      <div class="c">
-          <h2>QrDrop</h2>
-          <p>QRcodeを使ってデータを送信するやつです。</p>
-          <select name="mode" id="mode" value="halfauto">
-              <option value="halfauto">半自動</option>
-              <option value="auto">自動</option>
-          </select>
-          <div class="yoko">
-              <div class="upload">
-                  <h3>送信</h3>
-                  <input type="file" name="file" id="file">
-                  <button id="sosin">送信する</button>
-              </div>
-              <div class="download">
-                  <button id="jyusin">受信する</button>
-              </div>
-          </div>
-      </div>
+  <div class="nue">
+    <A href="/tools">← 戻る</A><br />
+    <div class="c">
+      <h2>QrDrop</h2>
+      <p>ファイルをQRコードで送受信します。</p>
+      <p>送信側は手動で次のQRへ進めます。受信側で<span class="green">🟢</span>が出たら、次のQRを表示してください。</p>
+    </div>
+
+    <div class="yoko">
+      <section class="panel">
+        <h3>送信</h3>
+        <input type="file" name="file" id="file" />
+        <button id="sosin" type="button">送信を準備</button>
+        <button id="next" type="button" disabled>次のQRへ</button>
+        <button id="reset" type="button" disabled>最初から</button>
+        <p id="sender-info">ファイルを選んでください。</p>
+        <div id="qr" aria-live="polite"></div>
+      </section>
+
+      <section class="panel">
+        <h3>受信</h3>
+        <button id="jyusin" type="button">受信を開始</button>
+        <div class="camera-wrap">
+          <video id="video" playsinline autoplay muted></video>
+          <canvas id="overlay"></canvas>
+        </div>
+        <div class="status">
+          <div id="emoji">📷</div>
+          <p id="receiver-info">開始QRを読み取ってください。</p>
+          <p id="receiver-meta"></p>
+        </div>
+        <a id="download" hidden>受信ファイルを保存</a>
+      </section>
+    </div>
   </div>
 </Layout>
 
 <script>
-// fileを2000byte事に分割する
-document.getElementById("sosin")!.onclick = (e) => {
-  const files = (document.getElementById("file") as HTMLInputElement).files
-  if (!files||!files.length) {
-    console.error("ファイルが無いよう...")
-    return
+import { encodeQR } from "qr";
+import { QRCanvas, frontalCamera, frameLoop } from "qr/dom.js";
+
+const PROTOCOL_PREFIX = "QRDROP1:";
+const CHUNK_SIZE = 1500;
+
+const fileInput = document.getElementById("file");
+const sendButton = document.getElementById("sosin");
+const nextButton = document.getElementById("next");
+const resetButton = document.getElementById("reset");
+const qrBox = document.getElementById("qr");
+const senderInfo = document.getElementById("sender-info");
+
+const receiveButton = document.getElementById("jyusin");
+const video = document.getElementById("video");
+const overlay = document.getElementById("overlay");
+const emoji = document.getElementById("emoji");
+const receiverInfo = document.getElementById("receiver-info");
+const receiverMeta = document.getElementById("receiver-meta");
+const downloadLink = document.getElementById("download");
+
+let senderState = null;
+let receiverState = null;
+let camera = null;
+let stopScan = null;
+let lastAcceptedScan = "";
+
+function bytesToBase64(bytes) {
+  let binary = "";
+  const step = 0x8000;
+  for (let i = 0; i < bytes.length; i += step) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + step));
   }
-  const file = files.item(0)
+  return btoa(binary);
 }
-import {encodeQR} from "qr"
-import {
-  QRCanvas,
-  frontalCamera,
-  frameLoop,
-} from "qr/dom.js";
 
-const video = document.getElementById("video") as HTMLVideoElement;
-
-const overlay = document.getElementById("overlay") as HTMLCanvasElement;
-
-const qr = new QRCanvas(
-  {
-    overlay,
-  },
-  {
-    cropToSquare: true,
-    overlayTimeout: 500,
+function base64ToBytes(base64) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
   }
-);
+  return bytes;
+}
 
-const camera = await frontalCamera(video);
+function makePacket(payload) {
+  return `${PROTOCOL_PREFIX}${JSON.stringify(payload)}`;
+}
 
-const cancel = frameLoop(() => {
-  const result = camera.readFrame(qr);
+function parsePacket(text) {
+  if (!text.startsWith(PROTOCOL_PREFIX)) {
+    return null;
+  }
 
-  if (result) {
-    console.log("QR:", result);
+  try {
+    return JSON.parse(text.slice(PROTOCOL_PREFIX.length));
+  } catch {
+    return null;
+  }
+}
+
+function renderQR(packet) {
+  qrBox.innerHTML = encodeQR(makePacket(packet), "svg", { version: 40, ecc: "low" });
+}
+
+function getChunks(bytes) {
+  const chunks = [];
+  for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
+    chunks.push(bytes.slice(i, i + CHUNK_SIZE));
+  }
+  return chunks;
+}
+
+function updateSenderView() {
+  if (!senderState) {
+    qrBox.innerHTML = "";
+    senderInfo.textContent = "ファイルを選んでください。";
+    nextButton.disabled = true;
+    resetButton.disabled = true;
+    return;
+  }
+
+  const { packets, index, file } = senderState;
+  const packet = packets[index];
+  renderQR(packet);
+
+  if (packet.t === "start") {
+    senderInfo.textContent = `開始QRです。受信側で🟢が出たら「次のQRへ」を押してください。 (${file.name})`;
+  } else if (packet.t === "data") {
+    senderInfo.textContent = `データ ${packet.i + 1} / ${senderState.dataCount} を表示中です。受信側で🟢が出たら次へ進めます。`;
+  } else {
+    senderInfo.textContent = "終了QRです。これが最後です。";
+  }
+
+  nextButton.disabled = index >= packets.length - 1;
+  resetButton.disabled = false;
+}
+
+function startSender(file) {
+  const chunks = getChunks(file.bytes);
+  const packets = [
+    {
+      t: "start",
+      name: file.name,
+      type: file.type || "application/octet-stream",
+      size: file.bytes.length,
+      chunkSize: CHUNK_SIZE,
+      chunkCount: chunks.length,
+    },
+    ...chunks.map((chunk, i) => ({
+      t: "data",
+      i,
+      data: bytesToBase64(chunk),
+    })),
+    {
+      t: "end",
+      size: file.bytes.length,
+      chunkCount: chunks.length,
+    },
+  ];
+
+  senderState = {
+    file,
+    packets,
+    dataCount: chunks.length,
+    index: 0,
+  };
+
+  updateSenderView();
+}
+
+function nextSenderPacket() {
+  if (!senderState || senderState.index >= senderState.packets.length - 1) {
+    return;
+  }
+
+  senderState.index += 1;
+  updateSenderView();
+}
+
+function resetSender() {
+  senderState = null;
+  fileInput.value = "";
+  updateSenderView();
+}
+
+function setReceiverStatus(symbol, message, meta = "") {
+  emoji.textContent = symbol;
+  receiverInfo.textContent = message;
+  receiverMeta.textContent = meta;
+}
+
+function clearDownloadLink() {
+  downloadLink.hidden = true;
+  downloadLink.removeAttribute("href");
+  downloadLink.removeAttribute("download");
+  downloadLink.textContent = "受信ファイルを保存";
+}
+
+function finishReceiver() {
+  if (!receiverState) {
+    return;
+  }
+
+  const { name, type, size, chunkCount, chunks } = receiverState;
+  const bytes = [];
+
+  for (let i = 0; i < chunkCount; i += 1) {
+    const chunk = chunks[i];
+    if (!chunk) {
+      setReceiverStatus("⚠️", "まだ全部そろっていません。", `不足: ${chunkCount - chunks.filter(Boolean).length} 個`);
+      return;
+    }
+    bytes.push(...chunk);
+  }
+
+  const blob = new Blob([new Uint8Array(bytes)], {
+    type: type || "application/octet-stream",
+  });
+  const url = URL.createObjectURL(blob);
+
+  clearDownloadLink();
+  downloadLink.href = url;
+  downloadLink.download = name || "qrdrop.bin";
+  downloadLink.hidden = false;
+  downloadLink.textContent = `${downloadLink.download} を保存`;
+  downloadLink.click();
+
+  setReceiverStatus("✅", "受信が完了しました。", `受信サイズ: ${size} byte / チャンク数: ${chunkCount}`);
+}
+
+function handlePacket(packet) {
+  if (!packet || typeof packet !== "object" || typeof packet.t !== "string") {
+    return;
+  }
+
+  if (packet.t === "start") {
+    receiverState = {
+      name: packet.name,
+      type: packet.type,
+      size: packet.size,
+      chunkSize: packet.chunkSize,
+      chunkCount: packet.chunkCount,
+      chunks: Array.from({ length: packet.chunkCount }, () => null),
+      received: 0,
+    };
+    clearDownloadLink();
+    setReceiverStatus("🟢", "開始QRを受信しました。次のQRを表示してください。", `全体: ${packet.size} byte / ${packet.chunkCount} 枚`);
+    return;
+  }
+
+  if (!receiverState) {
+    setReceiverStatus("⚠️", "先に開始QRを読み取ってください。", "");
+    return;
+  }
+
+  if (packet.t === "data") {
+    if (typeof packet.i !== "number" || typeof packet.data !== "string") {
+      return;
+    }
+
+    if (packet.i < 0 || packet.i >= receiverState.chunkCount) {
+      setReceiverStatus("⚠️", "受信したチャンク番号が範囲外です。", `index: ${packet.i}`);
+      return;
+    }
+
+    if (!receiverState.chunks[packet.i]) {
+      const chunk = base64ToBytes(packet.data);
+      receiverState.chunks[packet.i] = chunk;
+      receiverState.received += chunk.length;
+    }
+
+    const done = receiverState.chunks.filter(Boolean).length;
+    setReceiverStatus("🟢", "受信しました。次のQRを表示してください。", `進捗: ${done}/${receiverState.chunkCount} (${Math.round((done / receiverState.chunkCount) * 100)}%)`);
+    return;
+  }
+
+  if (packet.t === "end") {
+    finishReceiver();
+  }
+}
+
+async function startReceiver() {
+  if (stopScan) {
+    return;
+  }
+
+  camera = await frontalCamera(video);
+  const qr = new QRCanvas(
+    {
+      overlay,
+    },
+    {
+      cropToSquare: true,
+      overlayTimeout: 500,
+    },
+  );
+
+  stopScan = frameLoop(() => {
+    const result = camera.readFrame(qr);
+    if (!result || result === lastAcceptedScan) {
+      return;
+    }
+
+    const packet = parsePacket(result);
+    if (!packet) {
+      return;
+    }
+
+    lastAcceptedScan = result;
+    handlePacket(packet);
+  });
+
+  setReceiverStatus("📷", "読み取り中です。開始QRを映してください。", "");
+}
+
+sendButton.addEventListener("click", async () => {
+  const files = fileInput.files;
+  if (!files || !files.length) {
+    senderInfo.textContent = "ファイルが無いよう...";
+    return;
+  }
+
+  const file = files.item(0);
+  if (!file) {
+    senderInfo.textContent = "ファイルが読めません。";
+    return;
+  }
+
+  startSender({
+    name: file.name,
+    type: file.type,
+    bytes: new Uint8Array(await file.arrayBuffer()),
+  });
+});
+
+nextButton.addEventListener("click", () => {
+  nextSenderPacket();
+});
+
+resetButton.addEventListener("click", () => {
+  resetSender();
+});
+
+receiveButton.addEventListener("click", async () => {
+  try {
+    await startReceiver();
+    receiveButton.disabled = true;
+  } catch (error) {
+    setReceiverStatus("⚠️", "カメラを開始できませんでした。権限を確認してください。", "");
+    console.error(error);
   }
 });
-document.getElementById("Cancel")!.onclick = () => {
-  cancel()
-}
 
-const img = document.getElementById("qr")!
-document.getElementById("GO")!.onclick = (e) => {
-  const text = (document.getElementById("text") as HTMLInputElement).value
-  const qr = encodeQR(text, "svg",{version:40,ecc:"low"})
-  img.innerHTML = qr
-}
-
+updateSenderView();
+clearDownloadLink();
 </script>
 
 <style is:global>
-    .nue {}
+  .nue {}
+  .c {
+    text-align: center;
+  }
+  .yoko {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .panel {
+    flex: 1 1 320px;
+    text-align: center;
+  }
+  #qr {
+    min-height: 240px;
+    background-color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: auto;
+    margin-top: 0.75rem;
+  }
+  .camera-wrap {
+    position: relative;
+    width: 100%;
+    max-width: 420px;
+    margin: 0.75rem auto 0;
+    background: #111;
+  }
+  #video,
+  #overlay {
+    width: 100%;
+    display: block;
+  }
+  #overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  .status {
+    margin-top: 0.75rem;
+  }
+  #emoji {
+    font-size: 3rem;
+    line-height: 1;
+  }
+  .green {
+    color: #44d25f;
+  }
+  #download {
+    display: inline-block;
+    margin-top: 0.75rem;
+  }
+  @media (orientation: landscape) {
+    .nue {
+      width: 50vw;
+      margin: 0 auto;
+    }
     #qr {
-        background-color: white;
-        width: 90vw;
-        display: flex;
-        justify-content: center; /* 横中央 */
-        align-items: center;     /* 縦中央 */
+      width: 100%;
     }
-    .c {
-        text-align: center;
-    }
-    @media (orientation: landscape) {
-        .nue {
-            width: 50vw;
-            margin: 0 auto;
-        }
-        #qr {
-            width: 60%;
-        }
-    }
+  }
 </style>
