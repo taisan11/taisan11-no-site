@@ -9,10 +9,19 @@ import A from "../../components/A.astro";
     <div class="c">
       <h2>QrDrop</h2>
       <p>ファイルをQRコードで送受信します。</p>
-      <p>送信側は手動で次のQRへ進めます。受信側で<span class="green">🟢</span>が出たら、次のQRを表示してください。</p>
+      <div class="mode-selector">
+        <label><input type="radio" name="mode" value="manual" checked> 手動モード (片方向)</label>
+        <label><input type="radio" name="mode" value="facetoface"> 対面モード (双方向)</label>
+      </div>
+      <div id="manual-desc">
+        <p>送信側は手動で次のQRへ進めます。受信側で<span class="green">🟢</span>が出たら、次のQRを表示してください。</p>
+      </div>
+      <div id="facetoface-desc" hidden>
+        <p>両側でカメラを起動して互いにQRコードを読み取ります。受信側で<span class="green">🟢</span>が表示されたら、自動で次のQRが表示されます。</p>
+      </div>
     </div>
 
-    <div class="yoko">
+    <div class="yoko" id="manual-mode">
       <section class="panel">
         <h3>送信</h3>
         <input type="file" name="file" id="file" />
@@ -38,15 +47,198 @@ import A from "../../components/A.astro";
         <a id="download" hidden>受信ファイルを保存</a>
       </section>
     </div>
+
+    <div id="facetoface-mode" hidden>
+      <section class="facetoface-panel">
+        <h3>対面モード</h3>
+        <div class="facetoface-layout">
+          <div class="facetoface-side">
+            <h4>送信（あなたのQR）</h4>
+            <input type="file" name="file-f2f-send" id="file-f2f-send" />
+            <button id="f2f-send-btn" type="button">送信を準備</button>
+            <button id="f2f-stop-send" type="button" disabled>停止</button>
+            <p id="f2f-sender-info">ファイルを選んでください。</p>
+            <div id="f2f-qr-box" aria-live="polite"></div>
+          </div>
+
+          <div class="facetoface-side">
+            <h4>受信（相手のカメラ）</h4>
+            <button id="f2f-recv-btn" type="button">受信を開始</button>
+            <button id="f2f-stop-recv" type="button" disabled>停止</button>
+            <div class="camera-wrap">
+              <video id="f2f-video" playsinline autoplay muted></video>
+              <canvas id="f2f-overlay"></canvas>
+            </div>
+            <div class="status">
+              <div id="f2f-emoji">📷</div>
+              <p id="f2f-receiver-info">開始QRを読み取ってください。</p>
+              <p id="f2f-receiver-meta"></p>
+            </div>
+            <a id="f2f-download" hidden>受信ファイルを保存</a>
+          </div>
+        </div>
+      </section>
+    </div>
   </div>
 </Layout>
 
-<script>
+<script lang="ts">
 import { encodeQR } from "qr";
 import { QRCanvas, frontalCamera, frameLoop } from "qr/dom.js";
 
 const PROTOCOL_PREFIX = "QRDROP1:";
 const CHUNK_SIZE = 300;
+
+// === Types ===
+interface SenderState {
+  file: { name: string; type: string; bytes: Uint8Array };
+  packets: any[];
+  dataCount: number;
+  index: number;
+}
+
+interface ReceiverState {
+  name: string;
+  type: string;
+  size: number;
+  originalSize?: number;
+  chunkSize: number;
+  chunkCount: number;
+  chunks: (Uint8Array | null)[];
+  received: number;
+}
+
+interface FaceToFaceState {
+  senderIndex: number;
+  receiverChunks: (Uint8Array | null)[];
+}
+
+// === Elements ===
+const fileInput = document.getElementById("file") as HTMLInputElement;
+const sendButton = document.getElementById("sosin") as HTMLButtonElement;
+const nextButton = document.getElementById("next") as HTMLButtonElement;
+const resetButton = document.getElementById("reset") as HTMLButtonElement;
+const qrBox = document.getElementById("qr") as HTMLDivElement;
+const senderInfo = document.getElementById("sender-info") as HTMLParagraphElement;
+const receiveButton = document.getElementById("jyusin") as HTMLButtonElement;
+const video = document.getElementById("video") as HTMLVideoElement;
+const overlay = document.getElementById("overlay") as HTMLCanvasElement;
+const emoji = document.getElementById("emoji") as HTMLDivElement;
+const receiverInfo = document.getElementById("receiver-info") as HTMLParagraphElement;
+const receiverMeta = document.getElementById("receiver-meta") as HTMLParagraphElement;
+const downloadLink = document.getElementById("download") as HTMLAnchorElement;
+
+const modeRadios = document.querySelectorAll('input[name="mode"]') as NodeListOf<HTMLInputElement>;
+const manualModeDiv = document.getElementById("manual-mode") as HTMLDivElement;
+const facetoFaceModeDiv = document.getElementById("facetoface-mode") as HTMLDivElement;
+const manualDescDiv = document.getElementById("manual-desc") as HTMLDivElement;
+const faceToFaceDescDiv = document.getElementById("facetoface-desc") as HTMLDivElement;
+
+const f2fFileInput = document.getElementById("file-f2f-send") as HTMLInputElement;
+const f2fSendBtn = document.getElementById("f2f-send-btn") as HTMLButtonElement;
+const f2fStopSend = document.getElementById("f2f-stop-send") as HTMLButtonElement;
+const f2fSenderInfo = document.getElementById("f2f-sender-info") as HTMLParagraphElement;
+const f2fQrBox = document.getElementById("f2f-qr-box") as HTMLDivElement;
+const f2fRecvBtn = document.getElementById("f2f-recv-btn") as HTMLButtonElement;
+const f2fStopRecv = document.getElementById("f2f-stop-recv") as HTMLButtonElement;
+const f2fVideo = document.getElementById("f2f-video") as HTMLVideoElement;
+const f2fOverlay = document.getElementById("f2f-overlay") as HTMLCanvasElement;
+const f2fEmoji = document.getElementById("f2f-emoji") as HTMLDivElement;
+const f2fReceiverInfo = document.getElementById("f2f-receiver-info") as HTMLParagraphElement;
+const f2fReceiverMeta = document.getElementById("f2f-receiver-meta") as HTMLParagraphElement;
+const f2fDownloadLink = document.getElementById("f2f-download") as HTMLAnchorElement;
+
+// === State ===
+let senderState: SenderState | null = null;
+let receiverState: ReceiverState | null = null;
+let camera: any = null;
+let stopScan: (() => void) | null = null;
+let lastAcceptedScan = "";
+
+let f2fSenderState: SenderState | null = null;
+let f2fReceiverState: ReceiverState | null = null;
+let f2fState: FaceToFaceState | null = null;
+let f2fCamera: any = null;
+let f2fStopScan: (() => void) | null = null;
+let f2fLastAcceptedScan = "";
+let f2fAutoAdvanceTimer: ReturnType<typeof setInterval> | null = null;
+
+// === Utilities ===
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const step = 0x8000;
+  for (let i = 0; i < bytes.length; i += step) {
+    binary += String.fromCharCode(...Array.from(bytes.subarray(i, i + step)));
+  }
+  return btoa(binary);
+}
+
+function base64ToBytes(base64: string): Uint8Array {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+async function compressBytes(bytes: Uint8Array): Promise<Uint8Array> {
+  const stream = new ReadableStream({ start: (c) => { c.enqueue(bytes); c.close(); } });
+  const compressed = stream.pipeThrough(new CompressionStream("gzip"));
+  const reader = compressed.getReader();
+  const chunks: Uint8Array[] = [];
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) chunks.push(value);
+  }
+  const total = chunks.reduce((s, c) => s + c.length, 0);
+  const result = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return result;
+}
+
+async function decompressBytes(bytes: Uint8Array): Promise<Uint8Array> {
+  const stream = new ReadableStream({ start: (c) => { c.enqueue(bytes); c.close(); } });
+  const decompressed = stream.pipeThrough(new DecompressionStream("gzip"));
+  const reader = decompressed.getReader();
+  const chunks: Uint8Array[] = [];
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) chunks.push(value);
+  }
+  const total = chunks.reduce((s, c) => s + c.length, 0);
+  const result = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return result;
+}
+
+function makePacket(payload: any): string {
+  return `${PROTOCOL_PREFIX}${JSON.stringify(payload)}`;
+}
+
+function parsePacket(text: string): any {
+  if (!text.startsWith(PROTOCOL_PREFIX)) return null;
+  try { return JSON.parse(text.slice(PROTOCOL_PREFIX.length)); }
+  catch { return null; }
+}
+
+function renderQR(packet: any, target: HTMLDivElement): void {
+  target.innerHTML = encodeQR(makePacket(packet), "svg", { ecc: "low" });
+}
+
+function getChunks(bytes: Uint8Array): Uint8Array[] {
+  const chunks: Uint8Array[] = [];
+  for (let i = 0; i < bytes.length; i += CHUNK_SIZE) chunks.push(bytes.slice(i, i + CHUNK_SIZE));
+  return chunks;
+}
 
 const fileInput = document.getElementById("file");
 const sendButton = document.getElementById("sosin");
@@ -472,8 +664,320 @@ receiveButton.addEventListener("click", async () => {
   }
 });
 
+// === Face-to-Face Mode ===
+function updateF2FReceiverView(): void {
+  if (!f2fReceiverState) {
+    f2fReceiverInfo.textContent = "開始QRを読み取ってください。";
+    f2fReceiverMeta.textContent = "";
+    f2fEmoji.textContent = "📷";
+    return;
+  }
+
+  const done = f2fReceiverState.chunks.filter(Boolean).length;
+  const progress = Math.round((done / f2fReceiverState.chunkCount) * 100);
+  f2fReceiverMeta.textContent = `進捗: ${done}/${f2fReceiverState.chunkCount} (${progress}%)`;
+}
+
+function updateF2FSenderView(): void {
+  if (!f2fSenderState) {
+    f2fQrBox.innerHTML = "";
+    f2fSenderInfo.textContent = "ファイルを選んでください。";
+    f2fStopSend.disabled = true;
+    return;
+  }
+
+  const { packets, index, file } = f2fSenderState;
+  const packet = packets[index];
+  f2fQrBox.innerHTML = encodeQR(makePacket(packet), "svg", { ecc: "low" });
+
+  if (packet.t === "start") {
+    f2fSenderInfo.textContent = `開始QR (${file.name}) - 相手が受信するのを待機中...`;
+  } else if (packet.t === "data") {
+    f2fSenderInfo.textContent = `データ ${packet.i + 1} / ${f2fSenderState.dataCount} を表示中`;
+  } else if (packet.t === "end") {
+    f2fSenderInfo.textContent = "終了QR - 送信完了待機中";
+  }
+
+  f2fStopSend.disabled = false;
+}
+
+function setF2FReceiverStatus(symbol: string, message: string, meta = ""): void {
+  f2fEmoji.textContent = symbol;
+  f2fReceiverInfo.textContent = message;
+  f2fReceiverMeta.textContent = meta;
+}
+
+function clearF2FDownloadLink(): void {
+  f2fDownloadLink.hidden = true;
+  f2fDownloadLink.removeAttribute("href");
+  f2fDownloadLink.removeAttribute("download");
+  f2fDownloadLink.textContent = "受信ファイルを保存";
+}
+
+async function finishF2FReceiver(): Promise<void> {
+  if (!f2fReceiverState) {
+    return;
+  }
+
+  const { name, type, size, chunkCount, chunks, originalSize } = f2fReceiverState;
+  const bytes: number[] = [];
+
+  for (let i = 0; i < chunkCount; i += 1) {
+    const chunk = chunks[i];
+    if (!chunk) {
+      setF2FReceiverStatus("⚠️", "まだ全部そろっていません。", `不足: ${chunkCount - chunks.filter(Boolean).length} 個`);
+      return;
+    }
+    bytes.push(...chunk);
+  }
+
+  setF2FReceiverStatus("🔄", "解凍中...", "");
+
+  try {
+    const decompressed = await decompressBytes(new Uint8Array(bytes));
+
+    const blob = new Blob([decompressed], {
+      type: type || "application/octet-stream",
+    });
+    const url = URL.createObjectURL(blob);
+
+    clearF2FDownloadLink();
+    f2fDownloadLink.href = url;
+    f2fDownloadLink.download = name || "qrdrop.bin";
+    f2fDownloadLink.hidden = false;
+    f2fDownloadLink.textContent = `${f2fDownloadLink.download} を保存`;
+    f2fDownloadLink.click();
+
+    const originalLabel = originalSize ? ` (元: ${originalSize} byte)` : "";
+    setF2FReceiverStatus("✅", "受信が完了しました。", `サイズ: ${size} byte${originalLabel} / ${chunkCount} チャンク`);
+  } catch (error) {
+    setF2FReceiverStatus("⚠️", "解凍エラーが発生しました。", "");
+    console.error(error);
+  }
+}
+
+function handleF2FPacket(packet: any): void {
+  if (!packet || typeof packet !== "object" || typeof packet.t !== "string") {
+    return;
+  }
+
+  if (packet.t === "start") {
+    f2fReceiverState = {
+      name: packet.name,
+      type: packet.type,
+      size: packet.size,
+      originalSize: packet.originalSize,
+      chunkSize: packet.chunkSize,
+      chunkCount: packet.chunkCount,
+      chunks: Array.from({ length: packet.chunkCount }, () => null),
+      received: 0,
+    };
+    clearF2FDownloadLink();
+    setF2FReceiverStatus("🟢", "開始QRを受信しました。", `全体: ${packet.size} byte / ${packet.chunkCount} 枚`);
+    
+    // Auto-advance to next QR after receiving start
+    if (f2fSenderState && f2fSenderState.index < f2fSenderState.packets.length - 1) {
+      setTimeout(() => {
+        f2fSenderState!.index += 1;
+        updateF2FSenderView();
+      }, 500);
+    }
+    return;
+  }
+
+  if (!f2fReceiverState) {
+    setF2FReceiverStatus("⚠️", "先に開始QRを読み取ってください。", "");
+    return;
+  }
+
+  if (packet.t === "data") {
+    if (typeof packet.i !== "number" || typeof packet.data !== "string") {
+      return;
+    }
+
+    if (packet.i < 0 || packet.i >= f2fReceiverState.chunkCount) {
+      setF2FReceiverStatus("⚠️", "受信したチャンク番号が範囲外です。", `index: ${packet.i}`);
+      return;
+    }
+
+    if (!f2fReceiverState.chunks[packet.i]) {
+      const chunk = base64ToBytes(packet.data);
+      f2fReceiverState.chunks[packet.i] = chunk;
+      f2fReceiverState.received += chunk.length;
+    }
+
+    const done = f2fReceiverState.chunks.filter(Boolean).length;
+    setF2FReceiverStatus("🟢", "受信しました。", `進捗: ${done}/${f2fReceiverState.chunkCount} (${Math.round((done / f2fReceiverState.chunkCount) * 100)}%)`);
+    
+    // Auto-advance to next QR after receiving data
+    if (f2fSenderState && f2fSenderState.index < f2fSenderState.packets.length - 1) {
+      setTimeout(() => {
+        f2fSenderState!.index += 1;
+        updateF2FSenderView();
+      }, 500);
+    }
+    return;
+  }
+
+  if (packet.t === "end") {
+    finishF2FReceiver();
+  }
+}
+
+async function startF2FReceiver(): Promise<void> {
+  if (f2fStopScan) {
+    return;
+  }
+
+  f2fCamera = await frontalCamera(f2fVideo);
+  const qr = new QRCanvas(
+    {
+      overlay: f2fOverlay,
+    },
+    {
+      cropToSquare: true,
+      overlayTimeout: 500,
+    },
+  );
+
+  f2fStopScan = frameLoop(() => {
+    const result = f2fCamera.readFrame(qr);
+    if (!result || result === f2fLastAcceptedScan) {
+      return;
+    }
+
+    const packet = parsePacket(result);
+    if (!packet) {
+      return;
+    }
+
+    f2fLastAcceptedScan = result;
+    handleF2FPacket(packet);
+  });
+
+  setF2FReceiverStatus("📷", "読み取り中です。開始QRを映してください。", "");
+}
+
+async function startF2FSender(file: { name: string; type: string; bytes: Uint8Array }): Promise<void> {
+  f2fSenderInfo.textContent = "圧縮中...";
+  f2fSendBtn.disabled = true;
+
+  try {
+    const compressed = await compressBytes(file.bytes);
+    const chunks = getChunks(compressed);
+    const packets = [
+      {
+        t: "start",
+        name: file.name,
+        type: file.type || "application/octet-stream",
+        originalSize: file.bytes.length,
+        size: compressed.length,
+        chunkSize: CHUNK_SIZE,
+        chunkCount: chunks.length,
+      },
+      ...chunks.map((chunk, i) => ({
+        t: "data",
+        i,
+        data: bytesToBase64(chunk),
+      })),
+      {
+        t: "end",
+        size: compressed.length,
+        chunkCount: chunks.length,
+      },
+    ];
+
+    f2fSenderState = {
+      file,
+      packets,
+      dataCount: chunks.length,
+      index: 0,
+    };
+
+    updateF2FSenderView();
+    f2fSendBtn.disabled = false;
+  } catch (error) {
+    f2fSenderInfo.textContent = "圧縮エラーが発生しました。";
+    f2fSendBtn.disabled = false;
+    console.error(error);
+  }
+}
+
+async function stopF2FSender(): Promise<void> {
+  f2fSenderState = null;
+  f2fFileInput.value = "";
+  updateF2FSenderView();
+}
+
+async function stopF2FReceiver(): Promise<void> {
+  if (f2fStopScan) {
+    f2fStopScan();
+    f2fStopScan = null;
+  }
+  f2fCamera = null;
+  f2fReceiverState = null;
+  f2fLastAcceptedScan = "";
+  clearF2FDownloadLink();
+  setF2FReceiverStatus("📷", "開始QRを読み取ってください。", "");
+}
+
+// Mode switching
+modeRadios.forEach((radio) => {
+  radio.addEventListener("change", () => {
+    const isF2F = radio.value === "facetoface";
+    manualModeDiv.hidden = isF2F;
+    facetoFaceModeDiv.hidden = !isF2F;
+    manualDescDiv.hidden = isF2F;
+    faceToFaceDescDiv.hidden = !isF2F;
+  });
+});
+
+// Face-to-Face Send button
+f2fSendBtn.addEventListener("click", async () => {
+  const files = f2fFileInput.files;
+  if (!files || !files.length) {
+    f2fSenderInfo.textContent = "ファイルが無いよう...";
+    return;
+  }
+
+  const file = files.item(0);
+  if (!file) {
+    f2fSenderInfo.textContent = "ファイルが読めません。";
+    return;
+  }
+
+  await startF2FSender({
+    name: file.name,
+    type: file.type,
+    bytes: new Uint8Array(await file.arrayBuffer()),
+  });
+});
+
+f2fStopSend.addEventListener("click", async () => {
+  await stopF2FSender();
+});
+
+// Face-to-Face Receive button
+f2fRecvBtn.addEventListener("click", async () => {
+  try {
+    await startF2FReceiver();
+    f2fRecvBtn.disabled = true;
+  } catch (error) {
+    setF2FReceiverStatus("⚠️", "カメラを開始できませんでした。権限を確認してください。", "");
+    console.error(error);
+  }
+});
+
+f2fStopRecv.addEventListener("click", async () => {
+  await stopF2FReceiver();
+  f2fRecvBtn.disabled = false;
+  f2fStopRecv.disabled = true;
+});
+
 updateSenderView();
 clearDownloadLink();
+updateF2FSenderView();
+clearF2FDownloadLink();
 </script>
 
 <style is:global>
@@ -531,13 +1035,58 @@ clearDownloadLink();
     display: inline-block;
     margin-top: 0.75rem;
   }
+  .facetoface-panel {
+    text-align: center;
+  }
+  .facetoface-layout {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .facetoface-side {
+    flex: 1 1 320px;
+    min-width: 300px;
+    text-align: center;
+  }
+  .facetoface-side h4 {
+    margin: 0 0 1rem 0;
+    font-size: 1.1rem;
+  }
+  #f2f-qr-box {
+    min-height: 240px;
+    background-color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: auto;
+    margin-top: 0.75rem;
+    border-radius: 4px;
+  }
+  #f2f-video,
+  #f2f-overlay {
+    width: 100%;
+    display: block;
+  }
+  #f2f-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
   @media (orientation: landscape) {
     .nue {
-      width: 50vw;
+      width: 90vw;
       margin: 0 auto;
     }
     #qr {
       width: 100%;
+    }
+    .facetoface-layout {
+      gap: 2rem;
+    }
+    .facetoface-side {
+      flex: 1 1 45%;
     }
   }
 </style>
