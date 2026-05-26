@@ -104,7 +104,7 @@ function parsePacket(text) {
 }
 
 function renderQR(packet) {
-  qrBox.innerHTML = encodeQR(makePacket(packet), "svg", { version: 40, ecc: "low" });
+  qrBox.innerHTML = encodeQR(makePacket(packet), "svg", { ecc: "low" });
 }
 
 function getChunks(bytes) {
