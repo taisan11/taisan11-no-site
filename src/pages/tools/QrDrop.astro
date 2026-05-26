@@ -46,7 +46,7 @@ import { encodeQR } from "qr";
 import { QRCanvas, frontalCamera, frameLoop } from "qr/dom.js";
 
 const PROTOCOL_PREFIX = "QRDROP1:";
-const CHUNK_SIZE = 1500;
+const CHUNK_SIZE = 800;
 
 const fileInput = document.getElementById("file");
 const sendButton = document.getElementById("sosin");
@@ -85,6 +85,66 @@ function base64ToBytes(base64) {
     bytes[i] = binary.charCodeAt(i);
   }
   return bytes;
+}
+
+async function compressBytes(bytes) {
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(bytes);
+      controller.close();
+    },
+  });
+  const compressedStream = stream.pipeThrough(
+    new CompressionStream("gzip")
+  );
+  const reader = compressedStream.getReader();
+  const chunks = [];
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+  }
+
+  const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+  const result = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, offset);
+    offset += chunk.length;
+  }
+
+  return result;
+}
+
+async function decompressBytes(bytes) {
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(bytes);
+      controller.close();
+    },
+  });
+  const decompressedStream = stream.pipeThrough(
+    new DecompressionStream("gzip")
+  );
+  const reader = decompressedStream.getReader();
+  const chunks = [];
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+  }
+
+  const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+  const result = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, offset);
+    offset += chunk.length;
+  }
+
+  return result;
 }
 
 function makePacket(payload) {
@@ -173,6 +233,51 @@ function startSender(file) {
   updateSenderView();
 }
 
+async function startSenderWithCompression(file) {
+  senderInfo.textContent = "圧縮中...";
+  sendButton.disabled = true;
+
+  try {
+    const compressed = await compressBytes(file.bytes);
+    const chunks = getChunks(compressed);
+    const packets = [
+      {
+        t: "start",
+        name: file.name,
+        type: file.type || "application/octet-stream",
+        originalSize: file.bytes.length,
+        size: compressed.length,
+        chunkSize: CHUNK_SIZE,
+        chunkCount: chunks.length,
+      },
+      ...chunks.map((chunk, i) => ({
+        t: "data",
+        i,
+        data: bytesToBase64(chunk),
+      })),
+      {
+        t: "end",
+        size: compressed.length,
+        chunkCount: chunks.length,
+      },
+    ];
+
+    senderState = {
+      file,
+      packets,
+      dataCount: chunks.length,
+      index: 0,
+    };
+
+    updateSenderView();
+    sendButton.disabled = false;
+  } catch (error) {
+    senderInfo.textContent = "圧縮エラーが発生しました。";
+    sendButton.disabled = false;
+    console.error(error);
+  }
+}
+
 function nextSenderPacket() {
   if (!senderState || senderState.index >= senderState.packets.length - 1) {
     return;
@@ -201,12 +306,12 @@ function clearDownloadLink() {
   downloadLink.textContent = "受信ファイルを保存";
 }
 
-function finishReceiver() {
+async function finishReceiver() {
   if (!receiverState) {
     return;
   }
 
-  const { name, type, size, chunkCount, chunks } = receiverState;
+  const { name, type, size, chunkCount, chunks, originalSize } = receiverState;
   const bytes = [];
 
   for (let i = 0; i < chunkCount; i += 1) {
@@ -218,19 +323,29 @@ function finishReceiver() {
     bytes.push(...chunk);
   }
 
-  const blob = new Blob([new Uint8Array(bytes)], {
-    type: type || "application/octet-stream",
-  });
-  const url = URL.createObjectURL(blob);
+  setReceiverStatus("🔄", "解凍中...", "");
 
-  clearDownloadLink();
-  downloadLink.href = url;
-  downloadLink.download = name || "qrdrop.bin";
-  downloadLink.hidden = false;
-  downloadLink.textContent = `${downloadLink.download} を保存`;
-  downloadLink.click();
+  try {
+    const decompressed = await decompressBytes(new Uint8Array(bytes));
 
-  setReceiverStatus("✅", "受信が完了しました。", `受信サイズ: ${size} byte / チャンク数: ${chunkCount}`);
+    const blob = new Blob([decompressed], {
+      type: type || "application/octet-stream",
+    });
+    const url = URL.createObjectURL(blob);
+
+    clearDownloadLink();
+    downloadLink.href = url;
+    downloadLink.download = name || "qrdrop.bin";
+    downloadLink.hidden = false;
+    downloadLink.textContent = `${downloadLink.download} を保存`;
+    downloadLink.click();
+
+    const originalLabel = originalSize ? ` (元: ${originalSize} byte)` : "";
+    setReceiverStatus("✅", "受信が完了しました。", `圧縮サイズ: ${size} byte${originalLabel} / チャンク数: ${chunkCount}`);
+  } catch (error) {
+    setReceiverStatus("⚠️", "解凍エラーが発生しました。", "");
+    console.error(error);
+  }
 }
 
 function handlePacket(packet) {
@@ -243,6 +358,7 @@ function handlePacket(packet) {
       name: packet.name,
       type: packet.type,
       size: packet.size,
+      originalSize: packet.originalSize,
       chunkSize: packet.chunkSize,
       chunkCount: packet.chunkCount,
       chunks: Array.from({ length: packet.chunkCount }, () => null),
@@ -331,7 +447,7 @@ sendButton.addEventListener("click", async () => {
     return;
   }
 
-  startSender({
+  await startSenderWithCompression({
     name: file.name,
     type: file.type,
     bytes: new Uint8Array(await file.arrayBuffer()),
