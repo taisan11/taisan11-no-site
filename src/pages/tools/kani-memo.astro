@@ -8,6 +8,21 @@ import A from "../../components/A.astro";
       <A href="/tools">← 戻る</A><br/>
       <main>
           <h2>簡易メモ帳</h2>
+          <div id="bankBar">
+            <label>バンク</label>
+            <div id="bankButtons">
+              <button class="bank-btn" data-bank="0">1</button>
+              <button class="bank-btn" data-bank="1">2</button>
+              <button class="bank-btn" data-bank="2">3</button>
+              <button class="bank-btn" data-bank="3">4</button>
+              <button class="bank-btn" data-bank="4">5</button>
+              <button class="bank-btn" data-bank="5">6</button>
+              <button class="bank-btn" data-bank="6">7</button>
+              <button class="bank-btn" data-bank="7">8</button>
+              <button class="bank-btn" data-bank="8">9</button>
+              <button class="bank-btn" data-bank="9">10</button>
+            </div>
+          </div>
           <div id="toolbar">
             <div class="toolbar-group">
               <label>フォントサイズ</label>
@@ -49,20 +64,75 @@ const fontSizeLabel = document.getElementById("fontSizeLabel")!
 const heightSlider = document.getElementById("heightSlider") as HTMLInputElement
 const heightLabel = document.getElementById("heightLabel")!
 
-const STORAGE_KEY = "memo1"
+const BANK_COUNT = 10
+const BANK_PREFIX = "memo_bank_"
+const CURRENT_BANK_KEY = "memo_currentBank"
 const FONT_SIZE_KEY = "memo_fontSize"
 const HEIGHT_KEY = "memo_height"
 
-function save() {
-  localStorage.setItem(STORAGE_KEY, area.value)
+let currentBank = 0
+let undoStack: string[] = []
+let redoStack: string[] = []
+let ignoreNextInput = false
+
+function escapeHtml(s: string) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
 }
 
-function load() {
-  area.value = localStorage.getItem(STORAGE_KEY) ?? ""
+function toDisplay(s: string) {
+  return escapeHtml(s).replace(/\n/g, "<br>").replace(/ /g, "&nbsp;")
+}
+
+function getBankKey(i: number) { return BANK_PREFIX + i }
+
+function save() {
+  localStorage.setItem(getBankKey(currentBank), area.value)
+  localStorage.setItem(CURRENT_BANK_KEY, String(currentBank))
+}
+
+function loadBank(index: number) {
+  currentBank = index
+  ignoreNextInput = true
+  area.value = localStorage.getItem(getBankKey(index)) ?? ""
+  localStorage.setItem(CURRENT_BANK_KEY, String(index))
+  updateBankButtons()
   const fs = localStorage.getItem(FONT_SIZE_KEY)
   const h = localStorage.getItem(HEIGHT_KEY) || "400"
   if (fs) applyFontSize(Number(fs))
   if (h) applyHeight(Number(h))
+  highlightMatches()
+  undoStack = []
+  redoStack = []
+}
+
+function updateBankButtons() {
+  document.querySelectorAll(".bank-btn").forEach((btn, i) => {
+    btn.classList.toggle("active", i === currentBank)
+  })
+}
+
+function pushUndo() {
+  undoStack.push(area.value)
+  if (undoStack.length > 100) undoStack.shift()
+  redoStack = []
+}
+
+function undo() {
+  if (undoStack.length === 0) return
+  redoStack.push(area.value)
+  ignoreNextInput = true
+  area.value = undoStack.pop()!
+  save()
+  highlightMatches()
+}
+
+function redo() {
+  if (redoStack.length === 0) return
+  undoStack.push(area.value)
+  ignoreNextInput = true
+  area.value = redoStack.pop()!
+  save()
+  highlightMatches()
 }
 
 let pendingHighlight: number | undefined
@@ -73,7 +143,7 @@ function highlightMatches() {
     const query = searchInput.value
     const text = area.value
     if (!query) {
-      highlightLayer.innerHTML = ""
+      highlightLayer.innerHTML = text ? toDisplay(text) : ""
       matchCount.textContent = ""
       return
     }
@@ -84,12 +154,12 @@ function highlightMatches() {
     let lastIdx = 0
     let m: RegExpExecArray | null
     while ((m = regex.exec(text)) !== null) {
-      html += text.slice(lastIdx, m.index)
-      html += `<mark>${text.slice(m.index, m.index + m[0].length)}</mark>`
+      html += toDisplay(text.slice(lastIdx, m.index))
+      html += `<mark>${toDisplay(text.slice(m.index, m.index + m[0].length))}</mark>`
       lastIdx = regex.lastIndex
       count++
     }
-    html += text.slice(lastIdx)
+    html += toDisplay(text.slice(lastIdx))
     highlightLayer.innerHTML = html
     matchCount.textContent = count > 0 ? `${count} 件` : ""
   }, 100)
@@ -116,11 +186,24 @@ function applyHeight(val: number) {
 }
 
 area.addEventListener("input", () => {
+  if (ignoreNextInput) { ignoreNextInput = false; return }
+  pushUndo()
   save()
   highlightMatches()
 })
 
 area.addEventListener("scroll", syncScroll)
+
+area.addEventListener("keydown", (e) => {
+  if (e.ctrlKey && e.key === "z") {
+    e.preventDefault()
+    undo()
+  }
+  if (e.ctrlKey && (e.key === "y" || (e.key === "Z" && e.shiftKey))) {
+    e.preventDefault()
+    redo()
+  }
+})
 
 searchInput.addEventListener("input", highlightMatches)
 
@@ -128,10 +211,12 @@ replaceBtn.addEventListener("click", () => {
   const query = searchInput.value
   const replacement = replaceInput.value
   if (!query) return
+  pushUndo()
   const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
   const regex = new RegExp(escaped, "i")
   const newVal = area.value.replace(regex, replacement)
   if (newVal !== area.value) {
+    ignoreNextInput = true
     area.value = newVal
     save()
     highlightMatches()
@@ -145,8 +230,10 @@ replaceAllBtn.addEventListener("click", () => {
   const query = searchInput.value
   const replacement = replaceInput.value
   if (!query) return
+  pushUndo()
   const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
   const regex = new RegExp(escaped, "gi")
+  ignoreNextInput = true
   area.value = area.value.replace(regex, replacement)
   save()
   highlightMatches()
@@ -155,13 +242,48 @@ replaceAllBtn.addEventListener("click", () => {
 fontSizeSlider.addEventListener("input", () => applyFontSize(Number(fontSizeSlider.value)))
 heightSlider.addEventListener("input", () => applyHeight(Number(heightSlider.value)))
 
+document.querySelectorAll(".bank-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const bank = Number((btn as HTMLElement).dataset.bank)
+    if (bank === currentBank) return
+    save()
+    loadBank(bank)
+  })
+})
+
 window.onload = () => {
-  load()
-  highlightMatches()
+  const savedBank = Number(localStorage.getItem(CURRENT_BANK_KEY)) || 0
+  loadBank(savedBank)
 }
 </script>
 
 <style is:global>
+    #bankBar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 8px;
+      align-items: center;
+    }
+    #bankButtons {
+      display: flex;
+      gap: 4px;
+    }
+    .bank-btn {
+      width: 32px;
+      height: 32px;
+      border: 1px solid #888;
+      border-radius: 4px;
+      background: #fff;
+      cursor: pointer;
+      font-size: 13px;
+      transition: background .15s, color .15s;
+    }
+    .bank-btn.active {
+      background: #007aff;
+      color: #fff;
+      border-color: #007aff;
+    }
     #toolbar {
       display: flex;
       flex-wrap: wrap;
@@ -208,6 +330,7 @@ window.onload = () => {
       outline: none;
       resize: none;
       display: block;
+      overflow: auto;
     }
     #highlightLayer {
       position: absolute;
@@ -215,10 +338,12 @@ window.onload = () => {
       left: 0;
       z-index: 1;
       pointer-events: none;
-      overflow: auto;
+      overflow: hidden;
+      color: transparent;
     }
     #highlightLayer mark {
       background: Highlight;
+      color: transparent;
     }
     @media (orientation: landscape) {
       .nue { width: 90vw; margin: 0 auto; }
