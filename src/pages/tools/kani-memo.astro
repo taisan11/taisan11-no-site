@@ -19,11 +19,6 @@ import A from "../../components/A.astro";
               <input type="range" id="heightSlider" min="100" max="800" value="400" />
               <span id="heightLabel">400px</span>
             </div>
-            <div class="toolbar-group">
-              <label>幅</label>
-              <input type="range" id="widthSlider" min="200" max="1200" value="600" />
-              <span id="widthLabel">600px</span>
-            </div>
           </div>
           <div id="searchBar">
             <input type="text" id="searchInput" placeholder="検索..." />
@@ -53,13 +48,10 @@ const fontSizeSlider = document.getElementById("fontSizeSlider") as HTMLInputEle
 const fontSizeLabel = document.getElementById("fontSizeLabel")!
 const heightSlider = document.getElementById("heightSlider") as HTMLInputElement
 const heightLabel = document.getElementById("heightLabel")!
-const widthSlider = document.getElementById("widthSlider") as HTMLInputElement
-const widthLabel = document.getElementById("widthLabel")!
 
 const STORAGE_KEY = "memo1"
 const FONT_SIZE_KEY = "memo_fontSize"
 const HEIGHT_KEY = "memo_height"
-const WIDTH_KEY = "memo_width"
 
 function save() {
   localStorage.setItem(STORAGE_KEY, area.value)
@@ -68,11 +60,9 @@ function save() {
 function load() {
   area.value = localStorage.getItem(STORAGE_KEY) ?? ""
   const fs = localStorage.getItem(FONT_SIZE_KEY)
-  const h = localStorage.getItem(HEIGHT_KEY)
-  const w = localStorage.getItem(WIDTH_KEY)
+  const h = localStorage.getItem(HEIGHT_KEY) || "400"
   if (fs) applyFontSize(Number(fs))
   if (h) applyHeight(Number(h))
-  if (w) applyWidth(Number(w))
 }
 
 let pendingHighlight: number | undefined
@@ -125,13 +115,6 @@ function applyHeight(val: number) {
   localStorage.setItem(HEIGHT_KEY, String(val))
 }
 
-function applyWidth(val: number) {
-  wrapper.style.width = val + "px"
-  widthLabel.textContent = val + "px"
-  widthSlider.value = String(val)
-  localStorage.setItem(WIDTH_KEY, String(val))
-}
-
 area.addEventListener("input", () => {
   save()
   highlightMatches()
@@ -171,7 +154,6 @@ replaceAllBtn.addEventListener("click", () => {
 
 fontSizeSlider.addEventListener("input", () => applyFontSize(Number(fontSizeSlider.value)))
 heightSlider.addEventListener("input", () => applyHeight(Number(heightSlider.value)))
-widthSlider.addEventListener("input", () => applyWidth(Number(widthSlider.value)))
 
 window.onload = () => {
   load()
