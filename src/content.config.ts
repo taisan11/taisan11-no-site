@@ -1,5 +1,6 @@
-import { defineCollection, z } from 'astro:content';
-import { glob, file } from 'astro/loaders';
+import { defineCollection } from 'astro:content';
+import {z} from "astro/zod"
+import { glob } from 'astro/loaders';
 import { feedLoader } from '@ascorbic/feed-loader';
 
 const blog = defineCollection({
@@ -10,6 +11,7 @@ const blog = defineCollection({
       .preprocess((arg) => (typeof arg === "string" ? new Date(arg) : arg), z.date())
       .optional(),
     description: z.string().max(300).optional(),
+    isListed:z.boolean().default(true)
   }),
 });
 

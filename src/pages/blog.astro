@@ -1,9 +1,9 @@
 ---
 import { getCollection } from "astro:content";
-import type { CollectionEntry, AnyEntryMap } from "astro:content";
+import type { CollectionEntry } from "astro:content";
 import Layout from "../layouts/layout.astro";
-const posts = await getCollection("blog");
-const zenn: CollectionEntry<keyof AnyEntryMap>[] = await getCollection("zenn");
+const posts = (await getCollection("blog")).filter((d)=>d.data.isListed);
+const zenn: CollectionEntry<any>[] = (await getCollection("zenn"));
 
 //軽量化
 const intl = new Intl.DateTimeFormat("ja-JP", {
