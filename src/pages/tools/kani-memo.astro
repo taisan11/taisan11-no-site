@@ -192,17 +192,8 @@ window.onload = () => {
       align-items: center;
       gap: 6px;
     }
-    .toolbar-group label {
-      font-size: 0.85rem;
-      white-space: nowrap;
-    }
     .toolbar-group input[type="range"] {
       width: 100px;
-      vertical-align: middle;
-    }
-    .toolbar-group span {
-      font-size: 0.8rem;
-      min-width: 36px;
     }
     #searchBar {
       display: flex;
@@ -211,40 +202,12 @@ window.onload = () => {
       margin-bottom: 8px;
       align-items: center;
     }
-    #searchBar input {
-      padding: 4px 8px;
-      font-size: 0.9rem;
-      border: 1px solid #555;
-      border-radius: 4px;
-      background: #222;
-      color: #eee;
-    }
-    #searchBar button {
-      padding: 4px 10px;
-      font-size: 0.85rem;
-      border: 1px solid #555;
-      border-radius: 4px;
-      background: #333;
-      color: #eee;
-      cursor: pointer;
-    }
-    #searchBar button:hover {
-      background: #444;
-    }
-    #matchCount {
-      font-size: 0.8rem;
-      color: #aaa;
-      margin-left: 4px;
-    }
     #textareaWrapper {
       position: relative;
       overflow: hidden;
-      border: 1px solid #555;
-      border-radius: 4px;
     }
     #textarea, #highlightLayer {
-      font-family: monospace;
-      font-size: 20px;
+      font: 20px monospace;
       line-height: 1.5;
       padding: 8px;
       margin: 0;
@@ -259,7 +222,7 @@ window.onload = () => {
       position: relative;
       z-index: 2;
       color: transparent;
-      caret-color: #eee;
+      caret-color: auto;
       background: transparent;
       border: none;
       outline: none;
@@ -271,16 +234,11 @@ window.onload = () => {
       top: 0;
       left: 0;
       z-index: 1;
-      color: #eee;
-      background: #1a1a1a;
       pointer-events: none;
       overflow: auto;
-      visibility: visible;
     }
     #highlightLayer mark {
-      background: #eab308;
-      color: #000;
-      border-radius: 2px;
+      background: Highlight;
     }
     @media (orientation: landscape) {
       .nue { width: 90vw; margin: 0 auto; }
