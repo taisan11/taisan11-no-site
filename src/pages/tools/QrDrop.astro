@@ -82,7 +82,7 @@ import A from "../../components/A.astro";
   </div>
 </Layout>
 
-<script lang="ts">
+<script>
 import { encodeQR } from "qr";
 import { QRCanvas, frontalCamera, frameLoop } from "qr/dom.js";
 
@@ -774,7 +774,7 @@ function handleF2FPacket(packet: any): void {
     };
     clearF2FDownloadLink();
     setF2FReceiverStatus("🟢", "開始QRを受信しました。", `全体: ${packet.size} byte / ${packet.chunkCount} 枚`);
-    
+
     // Auto-advance to next QR after receiving start
     if (f2fSenderState && f2fSenderState.index < f2fSenderState.packets.length - 1) {
       setTimeout(() => {
@@ -808,7 +808,7 @@ function handleF2FPacket(packet: any): void {
 
     const done = f2fReceiverState.chunks.filter(Boolean).length;
     setF2FReceiverStatus("🟢", "受信しました。", `進捗: ${done}/${f2fReceiverState.chunkCount} (${Math.round((done / f2fReceiverState.chunkCount) * 100)}%)`);
-    
+
     // Auto-advance to next QR after receiving data
     if (f2fSenderState && f2fSenderState.index < f2fSenderState.packets.length - 1) {
       setTimeout(() => {
