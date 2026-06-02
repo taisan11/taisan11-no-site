@@ -1,0 +1,95 @@
+---
+import Layout from "../../layouts/layout.astro";
+import A from "../../components/A.astro";
+---
+
+<Layout title="taisan11のサイト">
+    <div class="nue">
+      <A href="/tools">← 戻る</A><br/>
+      <div>
+          <h2>Gb仕様目安算出機</h2>
+          <p>今月の残り日数をもとに1日あたりの使用目安を算出します。</p>
+          <div id="inputs">
+            <div>
+              <label for="remainingGb">残りGb</label>
+              <input type="number" id="remainingGb" min="0" step="0.1" value="0" />
+            </div>
+            <div>
+              <label for="insuranceGb">保険で残すGb</label>
+              <input type="number" id="insuranceGb" min="0" step="0.1" value="0" />
+            </div>
+          </div>
+          <div id="result">
+            <p>今月の残り: <span id="daysLeft">-</span>日</p>
+            <p>1日あたりの目安: <span id="dailyAmount">-</span> Gb</p>
+          </div>
+      </div>
+  </div>
+</Layout>
+
+<script>
+const remainingInput = document.getElementById("remainingGb") as HTMLInputElement
+const insuranceInput = document.getElementById("insuranceGb") as HTMLInputElement
+const daysLeftSpan = document.getElementById("daysLeft")!
+const dailyAmountSpan = document.getElementById("dailyAmount")!
+
+function calc() {
+  const now = new Date()
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+  const remainingDays = endOfMonth.getDate() - now.getDate()
+  daysLeftSpan.textContent = String(remainingDays)
+
+  const remaining = parseFloat(remainingInput.value) || 0
+  const insurance = parseFloat(insuranceInput.value) || 0
+  const usable = remaining - insurance
+
+  if (usable > 0 && remainingDays > 0) {
+    const perDay = usable / remainingDays
+    dailyAmountSpan.textContent = perDay.toFixed(3)
+  } else {
+    dailyAmountSpan.textContent = usable <= 0 ? "0" : "-"
+  }
+}
+
+remainingInput.addEventListener("input", calc)
+insuranceInput.addEventListener("input", calc)
+
+window.onload = calc
+</script>
+
+<style is:global>
+    #inputs {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    #inputs div {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    #inputs label {
+      min-width: 140px;
+    }
+    #inputs input {
+      padding: 4px 8px;
+      font-size: 1rem;
+      border: 1px solid #555;
+      border-radius: 4px;
+      background: #222;
+      color: #eee;
+      width: 120px;
+    }
+    #result p {
+      font-size: 1.2rem;
+      margin: 4px 0;
+    }
+    #result span {
+      color: #81E4DA;
+      font-weight: bold;
+    }
+    @media (orientation: landscape) {
+      .nue { width: 50vw; margin: 0 auto; }
+    }
+</style>

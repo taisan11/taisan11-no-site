@@ -8,24 +8,281 @@ import A from "../../components/A.astro";
       <A href="/tools">← 戻る</A><br/>
       <main>
           <h2>簡易メモ帳</h2>
-          <textarea id="textarea"></textarea>
+          <div id="toolbar">
+            <div class="toolbar-group">
+              <label>フォントサイズ</label>
+              <input type="range" id="fontSizeSlider" min="10" max="40" value="20" />
+              <span id="fontSizeLabel">20px</span>
+            </div>
+            <div class="toolbar-group">
+              <label>高さ</label>
+              <input type="range" id="heightSlider" min="100" max="800" value="400" />
+              <span id="heightLabel">400px</span>
+            </div>
+            <div class="toolbar-group">
+              <label>幅</label>
+              <input type="range" id="widthSlider" min="200" max="1200" value="600" />
+              <span id="widthLabel">600px</span>
+            </div>
+          </div>
+          <div id="searchBar">
+            <input type="text" id="searchInput" placeholder="検索..." />
+            <input type="text" id="replaceInput" placeholder="置換..." />
+            <button id="replaceBtn">置換</button>
+            <button id="replaceAllBtn">すべて置換</button>
+            <span id="matchCount"></span>
+          </div>
+          <div id="textareaWrapper">
+            <textarea id="textarea" spellcheck="false"></textarea>
+            <div id="highlightLayer" aria-hidden="true"></div>
+          </div>
       </main>
   </div>
 </Layout>
 
 <script>
-const area = document.getElementById("textarea")
-area.addEventListener("change", (e) => {
-  localStorage.setItem("memo1",e.target.value);
-});
+const area = document.getElementById("textarea") as HTMLTextAreaElement
+const highlightLayer = document.getElementById("highlightLayer")!
+const wrapper = document.getElementById("textareaWrapper")!
+const searchInput = document.getElementById("searchInput") as HTMLInputElement
+const replaceInput = document.getElementById("replaceInput") as HTMLInputElement
+const replaceBtn = document.getElementById("replaceBtn") as HTMLButtonElement
+const replaceAllBtn = document.getElementById("replaceAllBtn") as HTMLButtonElement
+const matchCount = document.getElementById("matchCount")!
+const fontSizeSlider = document.getElementById("fontSizeSlider") as HTMLInputElement
+const fontSizeLabel = document.getElementById("fontSizeLabel")!
+const heightSlider = document.getElementById("heightSlider") as HTMLInputElement
+const heightLabel = document.getElementById("heightLabel")!
+const widthSlider = document.getElementById("widthSlider") as HTMLInputElement
+const widthLabel = document.getElementById("widthLabel")!
+
+const STORAGE_KEY = "memo1"
+const FONT_SIZE_KEY = "memo_fontSize"
+const HEIGHT_KEY = "memo_height"
+const WIDTH_KEY = "memo_width"
+
+function save() {
+  localStorage.setItem(STORAGE_KEY, area.value)
+}
+
+function load() {
+  area.value = localStorage.getItem(STORAGE_KEY) ?? ""
+  const fs = localStorage.getItem(FONT_SIZE_KEY)
+  const h = localStorage.getItem(HEIGHT_KEY)
+  const w = localStorage.getItem(WIDTH_KEY)
+  if (fs) applyFontSize(Number(fs))
+  if (h) applyHeight(Number(h))
+  if (w) applyWidth(Number(w))
+}
+
+let pendingHighlight: number | undefined
+
+function highlightMatches() {
+  clearTimeout(pendingHighlight)
+  pendingHighlight = window.setTimeout(() => {
+    const query = searchInput.value
+    const text = area.value
+    if (!query) {
+      highlightLayer.innerHTML = ""
+      matchCount.textContent = ""
+      return
+    }
+    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+    const regex = new RegExp(escaped, "gi")
+    let html = ""
+    let count = 0
+    let lastIdx = 0
+    let m: RegExpExecArray | null
+    while ((m = regex.exec(text)) !== null) {
+      html += text.slice(lastIdx, m.index)
+      html += `<mark>${text.slice(m.index, m.index + m[0].length)}</mark>`
+      lastIdx = regex.lastIndex
+      count++
+    }
+    html += text.slice(lastIdx)
+    highlightLayer.innerHTML = html
+    matchCount.textContent = count > 0 ? `${count} 件` : ""
+  }, 100)
+}
+
+function syncScroll() {
+  highlightLayer.scrollTop = area.scrollTop
+  highlightLayer.scrollLeft = area.scrollLeft
+}
+
+function applyFontSize(val: number) {
+  area.style.fontSize = val + "px"
+  highlightLayer.style.fontSize = val + "px"
+  fontSizeLabel.textContent = val + "px"
+  fontSizeSlider.value = String(val)
+  localStorage.setItem(FONT_SIZE_KEY, String(val))
+}
+
+function applyHeight(val: number) {
+  wrapper.style.height = val + "px"
+  heightLabel.textContent = val + "px"
+  heightSlider.value = String(val)
+  localStorage.setItem(HEIGHT_KEY, String(val))
+}
+
+function applyWidth(val: number) {
+  wrapper.style.width = val + "px"
+  widthLabel.textContent = val + "px"
+  widthSlider.value = String(val)
+  localStorage.setItem(WIDTH_KEY, String(val))
+}
+
+area.addEventListener("input", () => {
+  save()
+  highlightMatches()
+})
+
+area.addEventListener("scroll", syncScroll)
+
+searchInput.addEventListener("input", highlightMatches)
+
+replaceBtn.addEventListener("click", () => {
+  const query = searchInput.value
+  const replacement = replaceInput.value
+  if (!query) return
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  const regex = new RegExp(escaped, "i")
+  const newVal = area.value.replace(regex, replacement)
+  if (newVal !== area.value) {
+    area.value = newVal
+    save()
+    highlightMatches()
+    const start = area.value.indexOf(replacement, area.selectionStart)
+    if (start !== -1) area.setSelectionRange(start, start + replacement.length)
+    area.focus()
+  }
+})
+
+replaceAllBtn.addEventListener("click", () => {
+  const query = searchInput.value
+  const replacement = replaceInput.value
+  if (!query) return
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  const regex = new RegExp(escaped, "gi")
+  area.value = area.value.replace(regex, replacement)
+  save()
+  highlightMatches()
+})
+
+fontSizeSlider.addEventListener("input", () => applyFontSize(Number(fontSizeSlider.value)))
+heightSlider.addEventListener("input", () => applyHeight(Number(heightSlider.value)))
+widthSlider.addEventListener("input", () => applyWidth(Number(widthSlider.value)))
+
 window.onload = () => {
-  area.innerText = localStorage.getItem("memo1")
+  load()
+  highlightMatches()
 }
 </script>
 
 <style is:global>
-    .nue {}
+    #toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-bottom: 8px;
+      align-items: center;
+    }
+    .toolbar-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .toolbar-group label {
+      font-size: 0.85rem;
+      white-space: nowrap;
+    }
+    .toolbar-group input[type="range"] {
+      width: 100px;
+      vertical-align: middle;
+    }
+    .toolbar-group span {
+      font-size: 0.8rem;
+      min-width: 36px;
+    }
+    #searchBar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 8px;
+      align-items: center;
+    }
+    #searchBar input {
+      padding: 4px 8px;
+      font-size: 0.9rem;
+      border: 1px solid #555;
+      border-radius: 4px;
+      background: #222;
+      color: #eee;
+    }
+    #searchBar button {
+      padding: 4px 10px;
+      font-size: 0.85rem;
+      border: 1px solid #555;
+      border-radius: 4px;
+      background: #333;
+      color: #eee;
+      cursor: pointer;
+    }
+    #searchBar button:hover {
+      background: #444;
+    }
+    #matchCount {
+      font-size: 0.8rem;
+      color: #aaa;
+      margin-left: 4px;
+    }
+    #textareaWrapper {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid #555;
+      border-radius: 4px;
+    }
+    #textarea, #highlightLayer {
+      font-family: monospace;
+      font-size: 20px;
+      line-height: 1.5;
+      padding: 8px;
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      box-sizing: border-box;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
     #textarea {
-        font-size:1.2rem
+      position: relative;
+      z-index: 2;
+      color: transparent;
+      caret-color: #eee;
+      background: transparent;
+      border: none;
+      outline: none;
+      resize: none;
+      display: block;
+    }
+    #highlightLayer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 1;
+      color: #eee;
+      background: #1a1a1a;
+      pointer-events: none;
+      overflow: auto;
+      visibility: visible;
+    }
+    #highlightLayer mark {
+      background: #eab308;
+      color: #000;
+      border-radius: 2px;
+    }
+    @media (orientation: landscape) {
+      .nue { width: 90vw; margin: 0 auto; }
     }
 </style>
