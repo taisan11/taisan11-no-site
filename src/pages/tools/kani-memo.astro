@@ -80,7 +80,7 @@ function escapeHtml(s: string) {
 }
 
 function toDisplay(s: string) {
-  return escapeHtml(s).replace(/\n/g, "<br>").replace(/ /g, "&nbsp;")
+  return escapeHtml(s).replace(/\n/g, "<br>")
 }
 
 function getBankKey(i: number) { return BANK_PREFIX + i }
@@ -331,6 +331,7 @@ window.onload = () => {
       resize: none;
       display: block;
       overflow: auto;
+      background: transparent;
     }
     #highlightLayer {
       position: absolute;
@@ -342,8 +343,9 @@ window.onload = () => {
       color: transparent;
     }
     #highlightLayer mark {
-      background: Highlight;
+      background: #ffffb0;
       color: transparent;
+      border-radius: 2px;
     }
     @media (orientation: landscape) {
       .nue { width: 90vw; margin: 0 auto; }
