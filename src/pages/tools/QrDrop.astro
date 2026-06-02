@@ -240,133 +240,6 @@ function getChunks(bytes: Uint8Array): Uint8Array[] {
   return chunks;
 }
 
-const fileInput = document.getElementById("file");
-const sendButton = document.getElementById("sosin");
-const nextButton = document.getElementById("next");
-const resetButton = document.getElementById("reset");
-const qrBox = document.getElementById("qr");
-const senderInfo = document.getElementById("sender-info");
-
-const receiveButton = document.getElementById("jyusin");
-const video = document.getElementById("video");
-const overlay = document.getElementById("overlay");
-const emoji = document.getElementById("emoji");
-const receiverInfo = document.getElementById("receiver-info");
-const receiverMeta = document.getElementById("receiver-meta");
-const downloadLink = document.getElementById("download");
-
-let senderState = null;
-let receiverState = null;
-let camera = null;
-let stopScan = null;
-let lastAcceptedScan = "";
-
-function bytesToBase64(bytes) {
-  let binary = "";
-  const step = 0x8000;
-  for (let i = 0; i < bytes.length; i += step) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + step));
-  }
-  return btoa(binary);
-}
-
-function base64ToBytes(base64) {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes;
-}
-
-async function compressBytes(bytes) {
-  const stream = new ReadableStream({
-    start(controller) {
-      controller.enqueue(bytes);
-      controller.close();
-    },
-  });
-  const compressedStream = stream.pipeThrough(
-    new CompressionStream("gzip")
-  );
-  const reader = compressedStream.getReader();
-  const chunks = [];
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    chunks.push(value);
-  }
-
-  const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
-  const result = new Uint8Array(totalLength);
-  let offset = 0;
-  for (const chunk of chunks) {
-    result.set(chunk, offset);
-    offset += chunk.length;
-  }
-
-  return result;
-}
-
-async function decompressBytes(bytes) {
-  const stream = new ReadableStream({
-    start(controller) {
-      controller.enqueue(bytes);
-      controller.close();
-    },
-  });
-  const decompressedStream = stream.pipeThrough(
-    new DecompressionStream("gzip")
-  );
-  const reader = decompressedStream.getReader();
-  const chunks = [];
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    chunks.push(value);
-  }
-
-  const totalLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
-  const result = new Uint8Array(totalLength);
-  let offset = 0;
-  for (const chunk of chunks) {
-    result.set(chunk, offset);
-    offset += chunk.length;
-  }
-
-  return result;
-}
-
-function makePacket(payload) {
-  return `${PROTOCOL_PREFIX}${JSON.stringify(payload)}`;
-}
-
-function parsePacket(text) {
-  if (!text.startsWith(PROTOCOL_PREFIX)) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(text.slice(PROTOCOL_PREFIX.length));
-  } catch {
-    return null;
-  }
-}
-
-function renderQR(packet) {
-  qrBox.innerHTML = encodeQR(makePacket(packet), "svg", { ecc: "low" });
-}
-
-function getChunks(bytes) {
-  const chunks = [];
-  for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
-    chunks.push(bytes.slice(i, i + CHUNK_SIZE));
-  }
-  return chunks;
-}
-
 function updateSenderView() {
   if (!senderState) {
     qrBox.innerHTML = "";
@@ -378,7 +251,7 @@ function updateSenderView() {
 
   const { packets, index, file } = senderState;
   const packet = packets[index];
-  renderQR(packet);
+  renderQR(packet, qrBox);
 
   if (packet.t === "start") {
     senderInfo.textContent = `開始QRです。受信側で🟢が出たら「次のQRへ」を押してください。 (${file.name})`;
