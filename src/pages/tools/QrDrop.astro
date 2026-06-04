@@ -39,6 +39,9 @@ import A from "../../components/A.astro";
           <video id="video" playsinline autoplay muted></video>
           <canvas id="overlay"></canvas>
         </div>
+        <div class="camera-select-wrap" id="camera-select-wrap" hidden>
+          <label>カメラ: <select id="camera-select"></select></label>
+        </div>
         <div class="status">
           <div id="emoji">📷</div>
           <p id="receiver-info">開始QRを読み取ってください。</p>
@@ -68,6 +71,9 @@ import A from "../../components/A.astro";
             <div class="camera-wrap">
               <video id="f2f-video" playsinline autoplay muted></video>
               <canvas id="f2f-overlay"></canvas>
+            </div>
+            <div class="camera-select-wrap" id="f2f-camera-select-wrap" hidden>
+              <label>カメラ: <select id="f2f-camera-select"></select></label>
             </div>
             <div class="status">
               <div id="f2f-emoji">📷</div>
@@ -108,11 +114,6 @@ interface ReceiverState {
   received: number;
 }
 
-interface FaceToFaceState {
-  senderIndex: number;
-  receiverChunks: (Uint8Array | null)[];
-}
-
 // === Elements ===
 const fileInput = document.getElementById("file") as HTMLInputElement;
 const sendButton = document.getElementById("sosin") as HTMLButtonElement;
@@ -147,6 +148,10 @@ const f2fEmoji = document.getElementById("f2f-emoji") as HTMLDivElement;
 const f2fReceiverInfo = document.getElementById("f2f-receiver-info") as HTMLParagraphElement;
 const f2fReceiverMeta = document.getElementById("f2f-receiver-meta") as HTMLParagraphElement;
 const f2fDownloadLink = document.getElementById("f2f-download") as HTMLAnchorElement;
+const cameraSelectWrap = document.getElementById("camera-select-wrap") as HTMLDivElement;
+const cameraSelect = document.getElementById("camera-select") as HTMLSelectElement;
+const f2fCameraSelectWrap = document.getElementById("f2f-camera-select-wrap") as HTMLDivElement;
+const f2fCameraSelect = document.getElementById("f2f-camera-select") as HTMLSelectElement;
 
 // === State ===
 let senderState: SenderState | null = null;
@@ -157,11 +162,10 @@ let lastAcceptedScan = "";
 
 let f2fSenderState: SenderState | null = null;
 let f2fReceiverState: ReceiverState | null = null;
-let f2fState: FaceToFaceState | null = null;
 let f2fCamera: any = null;
 let f2fStopScan: (() => void) | null = null;
 let f2fLastAcceptedScan = "";
-let f2fAutoAdvanceTimer: ReturnType<typeof setInterval> | null = null;
+let f2fAutoAdvanceTimeout: ReturnType<typeof setTimeout> | null = null;
 
 // === Utilities ===
 function bytesToBase64(bytes: Uint8Array): string {
@@ -471,6 +475,7 @@ async function startReceiver() {
   }
 
   camera = await frontalCamera(video);
+  populateCameraSelect(cameraSelect, cameraSelectWrap, camera);
   const qr = new QRCanvas(
     {
       overlay,
@@ -587,6 +592,27 @@ function clearF2FDownloadLink(): void {
   f2fDownloadLink.textContent = "受信ファイルを保存";
 }
 
+async function populateCameraSelect(
+  select: HTMLSelectElement,
+  wrap: HTMLElement,
+  camera: any,
+): Promise<void> {
+  try {
+    const devices = await camera.listDevices();
+    select.innerHTML = devices
+      .map((d: any) => `<option value="${d.deviceId}">${d.label}</option>`)
+      .join("");
+    if (devices.length > 1) wrap.hidden = false;
+    select.onchange = () => {
+      camera.setDevice(select.value).catch((err: any) => {
+        console.error("カメラ切替エラー:", err);
+      });
+    };
+  } catch (err) {
+    console.error("カメラ一覧取得エラー:", err);
+  }
+}
+
 async function finishF2FReceiver(): Promise<void> {
   if (!f2fReceiverState) {
     return;
@@ -650,7 +676,7 @@ function handleF2FPacket(packet: any): void {
 
     // Auto-advance to next QR after receiving start
     if (f2fSenderState && f2fSenderState.index < f2fSenderState.packets.length - 1) {
-      setTimeout(() => {
+      f2fAutoAdvanceTimeout = setTimeout(() => {
         f2fSenderState!.index += 1;
         updateF2FSenderView();
       }, 500);
@@ -684,7 +710,7 @@ function handleF2FPacket(packet: any): void {
 
     // Auto-advance to next QR after receiving data
     if (f2fSenderState && f2fSenderState.index < f2fSenderState.packets.length - 1) {
-      setTimeout(() => {
+      f2fAutoAdvanceTimeout = setTimeout(() => {
         f2fSenderState!.index += 1;
         updateF2FSenderView();
       }, 500);
@@ -703,6 +729,8 @@ async function startF2FReceiver(): Promise<void> {
   }
 
   f2fCamera = await frontalCamera(f2fVideo);
+  populateCameraSelect(f2fCameraSelect, f2fCameraSelectWrap, f2fCamera);
+  f2fStopRecv.disabled = false;
   const qr = new QRCanvas(
     {
       overlay: f2fOverlay,
@@ -787,21 +815,86 @@ async function stopF2FReceiver(): Promise<void> {
     f2fStopScan();
     f2fStopScan = null;
   }
-  f2fCamera = null;
+  if (f2fCamera) {
+    f2fCamera.stop();
+    f2fCamera = null;
+  }
+  if (f2fAutoAdvanceTimeout !== null) {
+    clearTimeout(f2fAutoAdvanceTimeout);
+    f2fAutoAdvanceTimeout = null;
+  }
+  f2fCameraSelectWrap.hidden = true;
   f2fReceiverState = null;
   f2fLastAcceptedScan = "";
   clearF2FDownloadLink();
   setF2FReceiverStatus("📷", "開始QRを読み取ってください。", "");
 }
 
+function cleanupManualMode(): void {
+  if (stopScan) {
+    stopScan();
+    stopScan = null;
+  }
+  if (camera) {
+    camera.stop();
+    camera = null;
+  }
+  cameraSelectWrap.hidden = true;
+  senderState = null;
+  receiverState = null;
+  lastAcceptedScan = "";
+  fileInput.value = "";
+  qrBox.innerHTML = "";
+  senderInfo.textContent = "ファイルを選んでください。";
+  nextButton.disabled = true;
+  resetButton.disabled = true;
+  clearDownloadLink();
+  setReceiverStatus("📷", "開始QRを読み取ってください。", "");
+  receiveButton.disabled = false;
+}
+
+function cleanupF2FMode(): void {
+  if (f2fStopScan) {
+    f2fStopScan();
+    f2fStopScan = null;
+  }
+  if (f2fCamera) {
+    f2fCamera.stop();
+    f2fCamera = null;
+  }
+  if (f2fAutoAdvanceTimeout !== null) {
+    clearTimeout(f2fAutoAdvanceTimeout);
+    f2fAutoAdvanceTimeout = null;
+  }
+  f2fCameraSelectWrap.hidden = true;
+  f2fSenderState = null;
+  f2fReceiverState = null;
+  f2fLastAcceptedScan = "";
+  f2fFileInput.value = "";
+  f2fQrBox.innerHTML = "";
+  f2fSenderInfo.textContent = "ファイルを選んでください。";
+  f2fStopSend.disabled = true;
+  clearF2FDownloadLink();
+  setF2FReceiverStatus("📷", "開始QRを読み取ってください。", "");
+  f2fRecvBtn.disabled = false;
+  f2fStopRecv.disabled = true;
+}
+
+function switchMode(target: "manual" | "facetoface"): void {
+  cleanupManualMode();
+  cleanupF2FMode();
+
+  const isF2F = target === "facetoface";
+  manualModeDiv.hidden = isF2F;
+  facetoFaceModeDiv.hidden = !isF2F;
+  manualDescDiv.hidden = isF2F;
+  faceToFaceDescDiv.hidden = !isF2F;
+}
+
 // Mode switching
 modeRadios.forEach((radio) => {
   radio.addEventListener("change", () => {
-    const isF2F = radio.value === "facetoface";
-    manualModeDiv.hidden = isF2F;
-    facetoFaceModeDiv.hidden = !isF2F;
-    manualDescDiv.hidden = isF2F;
-    faceToFaceDescDiv.hidden = !isF2F;
+    switchMode(radio.value as "manual" | "facetoface");
   });
 });
 
@@ -893,6 +986,13 @@ clearF2FDownloadLink();
     position: absolute;
     inset: 0;
     pointer-events: none;
+  }
+  .camera-select-wrap {
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+  }
+  .camera-select-wrap select {
+    max-width: 100%;
   }
   .status {
     margin-top: 0.75rem;

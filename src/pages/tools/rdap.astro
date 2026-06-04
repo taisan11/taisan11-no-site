@@ -1,0 +1,98 @@
+---
+import Layout from "../../layouts/layout.astro";
+import A from "../../components/A.astro";
+---
+
+<Layout title="taisan11のサイト">
+    <div class="nue">
+      <A href="/tools">← 戻る</A><br/>
+      <div class="c">
+          <h2>RDAP取得</h2>
+          <input type="text" placeholder="Domain" id="domain">
+          <button id="search">検索</button>
+          <div id="result"></div>
+      </div>
+  </div>
+</Layout>
+
+<script>
+const domainDOM = document.getElementById("domain") as HTMLInputElement
+const search = document.getElementById("search") as HTMLButtonElement
+const result = document.getElementById("result") as HTMLDivElement
+
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+}
+
+function buildTable(data: Record<string, string>): string {
+  return `<table class="rdap-table"><tbody>${Object.entries(data).map(([k, v]) =>
+    `<tr><th>${escapeHtml(k)}</th><td>${escapeHtml(v)}</td></tr>`
+  ).join("")}</tbody></table>`
+}
+
+function extractData(obj: any): Record<string, string> {
+  const nameservers = (obj.nameservers ?? []).map((ns: any) => ns.ldhName).join(", ")
+  const entities = (obj.entities ?? []).map((e: any) => {
+    const roles = (e.roles ?? []).join("/")
+    const name = e.vcardArray?.[1]?.find((item: any) => item[0] === "fn")?.[3] ?? e.handle ?? ""
+    return `${roles}: ${name}`
+  }).join("; ")
+
+  return {
+    "Domain": obj.ldhName ?? "",
+    "Handle": obj.handle ?? "",
+    "Status": (obj.status ?? []).join(", "),
+    "登録日": obj.registrationDate ?? "",
+    "有効期限": obj.expirationDate ?? "",
+    "更新日": obj.lastChangedDate ?? "",
+    "ネームサーバー": nameservers || "なし",
+    "エンティティ": entities || "なし",
+  }
+}
+
+search.onclick = async () => {
+  const domain = domainDOM.value.trim()
+  if (!domain) {
+    result.innerHTML = "<h3 class=\"error\">Domainをexample.comみたいな感じで入れてね</h3>"
+    return
+  }
+  result.innerHTML = "<p>取得中...</p>"
+  try {
+    const res = await fetch(`https://rdap.org/domain/${domain}`)
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const data = await res.json()
+    result.innerHTML = buildTable(extractData(data))
+  } catch (e) {
+    result.innerHTML = `<h3 class="error">取得に失敗しました: ${escapeHtml((e as Error).message)}</h3>`
+  }
+}
+</script>
+
+<style is:global>
+    .nue {}
+    .error {
+        color:red;
+    }
+    .rdap-table {
+        margin: 1em auto;
+        border-collapse: collapse;
+        text-align: left;
+    }
+    .rdap-table th, .rdap-table td {
+        border: 1px solid #888;
+        padding: 4px 10px;
+    }
+    .rdap-table th {
+        background: #f0f0f0;
+        white-space: nowrap;
+    }
+    .c {
+        text-align: center;
+    }
+    @media (orientation: landscape) {
+        .nue {
+            width: 50vw;
+            margin: 0 auto;
+        }
+    }
+</style>
