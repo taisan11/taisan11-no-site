@@ -30,23 +30,46 @@ function buildTable(data: Record<string, string>): string {
   ).join("")}</tbody></table>`
 }
 
+function getVcardValue(vcard: any, field: string): string {
+  return vcard?.[1]?.find((item: any) => item[0] === field)?.[3] ?? ""
+}
+
+function extractEvents(events: any[] | undefined): string {
+  if (!events || events.length === 0) return "なし"
+  return events.map((ev: any) => `${ev.eventAction}: ${ev.eventDate}`).join("; ")
+}
+
 function extractData(obj: any): Record<string, string> {
   const nameservers = (obj.nameservers ?? []).map((ns: any) => ns.ldhName).join(", ")
   const entities = (obj.entities ?? []).map((e: any) => {
     const roles = (e.roles ?? []).join("/")
-    const name = e.vcardArray?.[1]?.find((item: any) => item[0] === "fn")?.[3] ?? e.handle ?? ""
-    return `${roles}: ${name}`
+    const vcard = e.vcardArray
+    const fn = getVcardValue(vcard, "fn")
+    const org = getVcardValue(vcard, "org")
+    const email = getVcardValue(vcard, "email")
+    const name = fn || e.handle || ""
+    const extra = [org, email].filter(Boolean).join(" / ")
+    return `${roles}: ${name}${extra ? ` (${extra})` : ""}`
   }).join("; ")
+
+  const secureDNS = obj.secureDNS
+  const dnssecStr = secureDNS?.delegationSigned
+    ? `署名あり (algorithm=${secureDNS.algorithm ?? "?"}, digestType=${secureDNS.digestType ?? "?"})`
+    : secureDNS === null ? "なし" : "なし"
 
   return {
     "Domain": obj.ldhName ?? "",
     "Handle": obj.handle ?? "",
     "Status": (obj.status ?? []).join(", "),
+    "Whois Server": obj.port43 ?? "なし",
     "登録日": obj.registrationDate ?? "",
     "有効期限": obj.expirationDate ?? "",
     "更新日": obj.lastChangedDate ?? "",
+    "DNSSEC": dnssecStr,
     "ネームサーバー": nameservers || "なし",
     "エンティティ": entities || "なし",
+    "イベント": extractEvents(obj.events),
+    "オブジェクトタイプ": obj.objectClassName ?? "",
   }
 }
 
@@ -61,7 +84,9 @@ search.onclick = async () => {
     const res = await fetch(`https://rdap.org/domain/${domain}`)
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = await res.json()
-    result.innerHTML = buildTable(extractData(data))
+    const tableHtml = buildTable(extractData(data))
+    const rawJson = escapeHtml(JSON.stringify(data, null, 2))
+    result.innerHTML = tableHtml + `<details class="raw-json"><summary>生のJSONを表示</summary><pre>${rawJson}</pre></details>`
   } catch (e) {
     result.innerHTML = `<h3 class="error">取得に失敗しました: ${escapeHtml((e as Error).message)}</h3>`
   }
@@ -88,6 +113,28 @@ search.onclick = async () => {
     }
     .c {
         text-align: center;
+    }
+    .raw-json {
+        margin: 1em auto;
+        max-width: 100%;
+    }
+    .raw-json summary {
+        cursor: pointer;
+        font-weight: bold;
+        text-align: center;
+        padding: 4px;
+        user-select: none;
+    }
+    .raw-json pre {
+        background: #f5f5f5;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        padding: 8px;
+        font-size: 0.8em;
+        overflow-x: auto;
+        text-align: left;
+        max-height: 400px;
+        overflow-y: auto;
     }
     @media (orientation: landscape) {
         .nue {
