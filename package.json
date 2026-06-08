@@ -10,12 +10,12 @@
     "type-gen": "wrangler types"
   },
   "dependencies": {
-    "@astrojs/cloudflare": "13.6.0",
-    "@astrojs/mdx": "6.0.1",
+    "@astrojs/cloudflare": "13.6.1",
+    "@astrojs/mdx": "6.0.2",
     "@astrojs/sitemap": "3.7.3",
     "@playform/compress": "^0.2.3",
     "@taisan11/vite-plugin-budoux-build": "npm:@jsr/taisan11__vite-plugin-budoux-build",
-    "astro": "6.4.2",
+    "astro": "6.4.4",
     "astro-robots-txt": "^1.0.0",
     "qr": "^0.6.0",
     "remark-breaks": "^4.0.0",

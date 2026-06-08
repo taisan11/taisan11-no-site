@@ -108,5 +108,5 @@ export default defineConfig({
   prefetch:true,
   adapter: cloudflare({
     imageService:"compile"
-  })
+  }),
 });
