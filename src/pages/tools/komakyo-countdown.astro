@@ -2,11 +2,11 @@
 import Layout from "../../layouts/layout.astro";
 ---
 
-<Layout title="レイダース カウントダウン">
+<Layout title="東方紅魔郷 カウントダウン">
   <main>
     <section class="countdown-container">
-      <h1>スプラトゥーンレイダース発売まで</h1>
-      <p class="release-info">発売日：2026年7月23日</p>
+      <h1>東方紅魔郷 New Classic発売まで</h1>
+      <p class="release-info">発売日：2026年9月10日</p>
 
       <div class="countdown" id="countdown">
         <div class="countdown-item">
@@ -37,7 +37,7 @@ import Layout from "../../layouts/layout.astro";
 </Layout>
 
 <script>
-  const releaseDate = new Date('2026-07-23T00:00:00')
+  const releaseDate = new Date('2026-09-10T00:00:00')
   const countdownEl = document.getElementById('countdown')!;
   const statusEl = document.getElementById('status')!;
 
@@ -105,7 +105,7 @@ import Layout from "../../layouts/layout.astro";
         '<p style="font-size: 24px; text-align: center; color: #e74c3c;">発売開始！</p>';
 
       statusEl.textContent =
-        'スプラレイダースは発売中です！';
+        '東方紅魔郷NewClassic 好評発売中!!';
 
       return;
     }
@@ -139,9 +139,38 @@ import Layout from "../../layouts/layout.astro";
   updateCountdown();
   setInterval(updateCountdown, 500);
 </script>
-
+<!-- 紅魔郷のサイトから引っ張ってきた!! -->
 <style>
+:root {
+  --color-dark-red: #770818;
+  --color-black-red: #390b1b;
+  --color-ash-red: #9c5d5d;
+  --color-neutral-red: #ca1a1f;
+  --color-gold: #c5ae86;
+  --color-light-gray: #eadada;
+  --color-white: #ffffff;
+  --color-switch: #e60012;
+  --color-playstation: #00439c;
+  --color-steam: #2881a7;
+  --color-text: #390b1b;
+  --color-bg: #fff8f5;
+  --font-family-base: "YakuHanMP", "Shippori Mincho B1", serif;
+  --font-family-display: "Chonburi", serif;
+  --font-size-xs: 1.2rem;
+  --font-size-s: 1.4rem;
+  --font-size-m: 1.6rem;
+  --font-size-l: 1.8rem;
+  --font-size-xl: 2rem;
+  --font-size-xxl: 2.4rem;
+  --font-size-xxxl: 3.2rem;
+  --font-size-xxxxl: 4.8rem;
+  --font-size-xxxxxl: 6.4rem;
+  --spacing-section: 10rem;
+  --spacing-inner: 4rem;
+  --content-max-width: 1214px
+}
   main {
+      background-color: --color-bg;
     display: flex;
     justify-content: center;
     align-items: center;
