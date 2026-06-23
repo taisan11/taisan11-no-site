@@ -1,6 +1,5 @@
-import { type Plugin } from "unified"
-import type { Root } from "mdast"
-import { visit } from "unist-util-visit"
+import { defineMdastPlugin } from "satteri"
+import type { Link, Paragraph } from "mdast"
 import { unfurl } from "unfurl.js"
 
 export type HProperties = Record<string, string>
@@ -94,25 +93,18 @@ export const googleSlidesTransformer: Readonly<Transformer> = {
       const path = url.pathname.split("/")
 
       if (isWeb) {
-        // [ファイル] > [共有] > [ウェブに公開] で生成されたリンクである場合は、そのまま埋め込み用のURLを返す
-        // e.g. https://docs.google.com/presentation/d/e/XXXXXXXX/pub -> https://docs.google.com/presentation/d/e/XXXXXXXX/embed
         path[path.length - 1] = "embed"
         return new URL(path.join("/"), url.origin)
       }
 
       if (path.length <= 3) {
-        // URLの末尾がpresentation IDで終わっている場合は、末尾にembedを追加する
-        // e.g. https://docs.google.com/presentation/d/XXXXXXXX/ -> https://docs.google.com/presentation/d/XXXXXXXX/embed
         path.push("embed")
       } else {
-        // URLの末尾が`/edit`など、presentation ID以外で終わっている場合は、末尾をembedに置き換える
-        // e.g. https://docs.google.com/presentation/d/XXXXXXXX/edit -> https://docs.google.com/presentation/d/XXXXXXXX/embed
         path[path.length - 1] = "embed"
       }
       return new URL(path.join("/"), url.origin)
     }
 
-    // [ファイル] > [共有] > [ウェブに公開] で生成されたリンクであるかどうか
     const isWeb = url.pathname.startsWith("/presentation/d/e/")
 
     return {
@@ -132,63 +124,6 @@ export const googleSlidesTransformer: Readonly<Transformer> = {
   },
 }
 
-export const remarkEmbed: Plugin<[RemarkEmbedOptions?], Root> = (options = defaultRemarkEmbedOptions) => {
-  return async (tree, file) => {
-    const transforms: Promise<void>[] = []
-
-    visit(tree, "link", (link, index, paragraph) => {
-      const firstChild = Array.isArray(link.children) ? link.children[0] : undefined
-
-      // Check if the paragraph only contains a single url link
-      // e.g. OK: `https://example.com/hoge`
-      //      NG: `according to example.com/hoge`
-      //      NG: `[example](https://example.com/hoge)`
-      if (
-        paragraph?.type !== "paragraph" ||
-        paragraph.children.length !== 1 ||
-        (link.data?.hName != null && link.data?.hName !== "a") ||
-        !firstChild ||
-        firstChild.type !== "text" ||
-        firstChild.value !== link.url
-      )
-        return
-
-      let url: URL
-      try {
-        url = new URL(link.url)
-      } catch {
-        return
-      }
-
-      const transform = async () => {
-        for (const transformer of options.transformers) {
-          if (!(await transformer.match(url))) continue
-
-          if (!link.data) link.data = {}
-
-          link.data.hName = await getHName(transformer, url)
-          link.data.hProperties = {
-            ...(link.data?.hProperties ?? {}),
-            ...(await getHProperties(transformer, url)),
-            url: link.url,
-          }
-          link.children = []
-          return
-        }
-      }
-      transforms.push(
-        transform().catch((e) => {
-          const msg = `[ERROR] Failed to embed ${link.url} in ${file.path} at line ${link.position?.start?.line}`
-          const reason = e instanceof Error ? e.message : String(e)
-          file.message(`${msg}; ${reason}`, link.position, "remarkEmbed")
-        }),
-      )
-    })
-
-    await Promise.all(transforms)
-  }
-}
-
 const getHName = async (transformer: Transformer, url: URL) => {
   if (typeof transformer.hName === "function") return transformer.hName(url)
   return transformer.hName
@@ -198,3 +133,85 @@ const getHProperties = async (transformer: Transformer, url: URL) => {
   if (typeof transformer.hProperties === "function") return transformer.hProperties(url)
   return transformer.hProperties
 }
+
+export const remarkEmbed = (options: RemarkEmbedOptions = defaultRemarkEmbedOptions) => {
+  return defineMdastPlugin({
+    name: "remark-embed",
+    link(node, ctx) {
+      const firstChild = Array.isArray(node.children) ? node.children[0] : undefined
+      const parent = ctx.parent(node) as Paragraph
+
+      // Check if the paragraph only contains a single url link
+      if (
+        !parent ||
+        parent.type !== "paragraph" ||
+        parent.children.length !== 1 ||
+        (node.data?.hName != null && node.data?.hName !== "a") ||
+        !firstChild ||
+        firstChild.type !== "text" ||
+        firstChild.value !== node.url
+      )
+        return
+
+      let url: URL
+      try {
+        url = new URL(node.url)
+      } catch {
+        return
+      }
+
+      // Satteri doesn't have a direct "async" mechanism inside the visitor like unified's `file.message` for deferred tasks,
+      // but we can use `ctx.data` to store promises if we want to await them later, or just run them synchronously if possible.
+      // However, `unfurl` is async. Satteri supports async visitors.
+      return (async () => {
+        for (const transformer of options.transformers) {
+          if (!(await transformer.match(url))) continue
+
+          const hName = await getHName(transformer, url)
+          const hProperties = {
+            ...(await getHProperties(transformer, url)),
+            url: node.url,
+          }
+
+          // Satteri allows setting `data.hName` and `data.hProperties` to override rendering.
+          ctx.setProperty(node, "data", {
+            hName,
+            hProperties,
+          })
+          ctx.setProperty(node, "children", [])
+          return
+        }
+      })()
+    }
+  })
+}
+
+export const satteriRemarkBreaks = defineMdastPlugin({
+  name: "satteri-remark-breaks",
+  paragraph(node, ctx) {
+    // We need to process text nodes inside paragraphs to replace newlines with breaks.
+    const newChildren: any[] = []
+    let changed = false
+
+    for (const child of node.children) {
+      if (child.type === "text" && child.value.includes("\n")) {
+        changed = true
+        const parts = child.value.split("\n")
+        parts.forEach((part, i) => {
+          if (part) {
+            newChildren.push({ type: "text", value: part })
+          }
+          if (i < parts.length - 1) {
+            newChildren.push({ type: "break" })
+          }
+        })
+      } else {
+        newChildren.push(child)
+      }
+    }
+
+    if (changed) {
+      ctx.setProperty(node, "children", newChildren)
+    }
+  }
+})

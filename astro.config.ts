@@ -7,10 +7,9 @@ import aaa from "@taisan11/vite-plugin-budoux-build/astro"
 import robotsTxt from "astro-robots-txt";
 import mdx from "@astrojs/mdx";
 //markdown
-import remarkbreaks from "remark-breaks"
-import rehypeexternallinks from "rehype-external-links"
-import slug from "rehype-slug"
-import {remarkEmbed,oEmbedTransformer,youTubeTransformer,googleSlidesTransformer, type RemarkEmbedOptions} from "./src/lib/remarkEmbed.ts";
+import { satteri, satteriHeadingIdsPlugin } from '@astrojs/markdown-satteri';
+import { remarkEmbed, youTubeTransformer, googleSlidesTransformer, oEmbedTransformer, type RemarkEmbedOptions } from "./src/lib/satteri-plugins.ts";
+import { satteriRemarkBreaks } from "./src/lib/satteri-plugins.ts";
 //other
 import type {AstroIntegration} from "astro"
 import {getLastCommit} from "git-last-commit"
@@ -72,16 +71,30 @@ export default defineConfig({
   output:"static",
 
   markdown: {
-    remarkPlugins: [
-      remarkbreaks,
-      [
-        remarkEmbed,
-        {
+    processor: satteri({
+      mdastPlugins: [
+        satteriRemarkBreaks,
+        remarkEmbed({
           transformers: [youTubeTransformer, googleSlidesTransformer, oEmbedTransformer],
-        } satisfies RemarkEmbedOptions,
+        } satisfies RemarkEmbedOptions),
       ],
-    ],
-    rehypePlugins: [rehypeexternallinks, slug],
+      hastPlugins: [
+        {
+          name: "rehype-external-links",
+          element: {
+            filter: ["a"],
+            visit(node, ctx) {
+              const href = node.properties.href;
+              if (typeof href === "string" && href.startsWith("http")) {
+                ctx.setProperty(node, "target", "_blank");
+                ctx.setProperty(node, "rel", "noopener noreferrer");
+              }
+            },
+          },
+        },
+        satteriHeadingIdsPlugin()
+      ],
+    }),
   },
 
   vite:{
