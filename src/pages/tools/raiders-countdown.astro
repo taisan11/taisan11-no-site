@@ -115,7 +115,7 @@ import Layout from "../../layouts/layout.astro";
     // 月
     if (diff.months === 0) {
       if (!monthsRemoved) {
-        monthsEl.outerHTML = '';
+        monthsEl.parentElement!.outerHTML = '';
         monthsRemoved = true;
       }
     } else {
