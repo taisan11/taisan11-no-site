@@ -1,0 +1,181 @@
+---
+import Layout from "../../layouts/layout.astro";
+import A from "../../components/A.astro";
+---
+
+<Layout title="画面物差し">
+    <div class="nue">
+      <A href="/tools">← 戻る</A><br/>
+      <div class="c">
+          <h2>画面物差し</h2>
+          <div class="controls">
+            <button id="card">クレジットカード</button>
+            <button id="coin">100円玉</button>
+          </div>
+
+          <input id="scale" type="range" min="0.8" max="1.2" step="0.001" value="1">
+
+          <div id="target"></div>
+
+          <div id="ruler"></div>
+      </div>
+  </div>
+</Layout>
+
+<script>
+const target = document.getElementById("target")!;
+const rulerDiv = document.getElementById("ruler")!;
+const slider = document.getElementById("scale") as HTMLInputElement;
+
+let currentScale = parseFloat(localStorage.getItem("scale") ?? "1");
+slider.value = String(currentScale);
+
+function drawRuler() {
+  rulerDiv.innerHTML = "";
+  const svgNS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(svgNS, "svg");
+  svg.setAttribute("width", "100%");
+  svg.setAttribute("height", "100%");
+  svg.style.position = "fixed";
+  svg.style.top = "0";
+  svg.style.left = "0";
+  svg.style.pointerEvents = "none";
+
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  const pxPerMm = (96 / 25.4) * currentScale;
+
+  for (let mm = 0; mm < w / pxPerMm; mm++) {
+    const x = mm * pxPerMm;
+    const line = document.createElementNS(svgNS, "line");
+    line.setAttribute("x1", String(x));
+    line.setAttribute("y1", "0");
+    line.setAttribute("x2", String(x));
+    if (mm % 10 === 0) line.setAttribute("y2", "40");
+    else if (mm % 5 === 0) line.setAttribute("y2", "25");
+    else line.setAttribute("y2", "15");
+    line.setAttribute("stroke", "black");
+    svg.appendChild(line);
+    if (mm % 10 === 0) {
+      const text = document.createElementNS(svgNS, "text");
+      text.setAttribute("x", String(x + 2));
+      text.setAttribute("y", "55");
+      text.textContent = String(mm / 10);
+      text.setAttribute("font-size", "14");
+      svg.appendChild(text);
+    }
+  }
+
+  for (let mm = 0; mm < h / pxPerMm; mm++) {
+    const y = mm * pxPerMm;
+    const line = document.createElementNS(svgNS, "line");
+    line.setAttribute("x1", "0");
+    line.setAttribute("y1", String(y));
+    if (mm % 10 === 0) line.setAttribute("x2", "40");
+    else if (mm % 5 === 0) line.setAttribute("x2", "25");
+    else line.setAttribute("x2", "15");
+    line.setAttribute("x2", line.getAttribute("x2")!);
+    line.setAttribute("y2", String(y));
+    line.setAttribute("stroke", "black");
+    svg.appendChild(line);
+    if (mm % 10 === 0) {
+      const text = document.createElementNS(svgNS, "text");
+      text.setAttribute("x", "45");
+      text.setAttribute("y", String(y + 5));
+      text.textContent = String(mm / 10);
+      text.setAttribute("font-size", "14");
+      svg.appendChild(text);
+    }
+  }
+
+  rulerDiv.appendChild(svg);
+}
+
+let currentType: "card" | "coin" | null = null;
+
+let targetPlaced = false;
+
+function updateTarget() {
+  const pxPerMm = (96 / 25.4) * currentScale;
+  if (currentType === "card") {
+    const w = 85.6 * pxPerMm;
+    const h = 54 * pxPerMm;
+    target.style.width = `${w}px`;
+    target.style.height = `${h}px`;
+    target.style.borderRadius = "0";
+    target.style.display = "block";
+    if (!targetPlaced) {
+      target.style.left = `${(window.innerWidth - w) / 2}px`;
+      target.style.top = `${(window.innerHeight - h) / 2}px`;
+      targetPlaced = true;
+    }
+  } else if (currentType === "coin") {
+    const d = 22.6 * pxPerMm;
+    target.style.width = `${d}px`;
+    target.style.height = `${d}px`;
+    target.style.borderRadius = "50%";
+    target.style.display = "block";
+    if (!targetPlaced) {
+      target.style.left = `${(window.innerWidth - d) / 2}px`;
+      target.style.top = `${(window.innerHeight - d) / 2}px`;
+      targetPlaced = true;
+    }
+  } else {
+    target.style.display = "none";
+    targetPlaced = false;
+  }
+}
+
+document.getElementById("card")!.onclick = () => {
+  targetPlaced = false;
+  currentType = currentType === "card" ? null : "card";
+  updateTarget();
+};
+document.getElementById("coin")!.onclick = () => {
+  targetPlaced = false;
+  currentType = currentType === "coin" ? null : "coin";
+  updateTarget();
+};
+
+slider.oninput = () => {
+  currentScale = parseFloat(slider.value);
+  localStorage.setItem("scale", String(currentScale));
+  drawRuler();
+  updateTarget();
+};
+
+drawRuler();
+updateTarget();
+</script>
+
+<style is:global>
+    .nue {}
+    .c {
+        text-align: center;
+    }
+    .controls {
+        margin-bottom: 1rem;
+    }
+    .controls button {
+        margin: 0 0.5rem;
+        padding: 0.5rem 1rem;
+    }
+    #scale {
+        width: 80%;
+        margin: 1rem auto;
+        display: block;
+    }
+    #target {
+        position: fixed;
+        border: 2px solid rgba(255, 0, 0, 0.7);
+        background: rgba(255, 0, 0, 0.1);
+        pointer-events: none;
+        transition: width 0.2s, height 0.2s;
+    }
+    @media (orientation: landscape) {
+        .nue {
+            width: 50vw;
+            margin: 0 auto;
+        }
+    }
+</style>
