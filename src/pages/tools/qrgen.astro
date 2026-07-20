@@ -22,7 +22,7 @@ import A from "../../components/A.astro";
                   </select>
               </label>
               <label>
-                  角パターンの形（3か所）
+                  パターンの形（角3か所・アライメント）
                   <select id="finder-pattern">
                       <option value="sikaku">四角</option>
                       <option value="maru">丸</option>
@@ -38,7 +38,7 @@ import A from "../../components/A.astro";
                   </select>
               </label>
               <label class="range-label">
-                  <span>画像サイズ <output id="size-value">512</output>px</span>
+                  <span>画像サイズ <output id="size-value">1024</output>px</span>
                   <input type="range" id="size" min="128" max="2048" step="16" value="1024" />
               </label>
               <label>
@@ -50,15 +50,31 @@ import A from "../../components/A.astro";
                   <input type="range" id="border" min="1" max="10" step="1" value="4" />
               </label>
               <label class="range-label">
-                  <span>セル間隔（0%で隙間なし） <output id="gap-value">0</output>%</span>
-                  <input type="range" id="gap" min="0" max="30" step="1" value="0" />
+                  <span>通常コードのセル間隔 <output id="code-gap-value">0</output>%</span>
+                  <input type="range" id="code-gap" min="0" max="30" step="1" value="0" />
               </label>
               <label class="range-label">
-                  <span>丸み <output id="roundness-value">100</output>%</span>
-                  <input type="range" id="roundness" min="0" max="100" step="1" value="100" />
+                  <span>通常コードの丸み <output id="code-roundness-value">100</output>%</span>
+                  <input type="range" id="code-roundness" min="0" max="100" step="1" value="100" />
+              </label>
+              <label class="range-label">
+                  <span>パターンのセル間隔 <output id="pattern-gap-value">0</output>%</span>
+                  <input type="range" id="pattern-gap" min="0" max="30" step="1" value="0" />
+              </label>
+              <label class="range-label">
+                  <span>パターンの丸み <output id="pattern-roundness-value">100</output>%</span>
+                  <input type="range" id="pattern-roundness" min="0" max="100" step="1" value="100" />
               </label>
               <div class="color-inputs">
                   <label>背景色 <input type="color" id="background" value="#ffffff" /></label>
+                  <label>
+                      通常コードの色
+                      <select id="code-color-mode">
+                          <option value="auto" selected>背景に合わせて自動</option>
+                          <option value="custom">指定色</option>
+                      </select>
+                      <input type="color" id="code-color" value="#000000" disabled />
+                  </label>
                   <label class="file-input">
                       背景画像
                       <input type="file" id="background-image" accept="image/*" />
@@ -80,14 +96,18 @@ import {encodeQR} from "qr"
 const img = document.getElementById("qr") as HTMLDivElement
 const textInput = document.getElementById("text") as HTMLInputElement
 const patternInput = document.getElementById("pattern") as unknown as HTMLSelectElement
-const finderPatternInput = document.getElementById("finder-pattern") as HTMLSelectElement
+const finderPatternInput = document.getElementById("finder-pattern") as unknown as HTMLSelectElement
 const eccInput = document.getElementById("ecc") as unknown as HTMLSelectElement
 const sizeInput = document.getElementById("size") as HTMLInputElement
 const sizeNumberInput = document.getElementById("size-number") as HTMLInputElement
 const borderInput = document.getElementById("border") as HTMLInputElement
-const gapInput = document.getElementById("gap") as HTMLInputElement
-const roundnessInput = document.getElementById("roundness") as HTMLInputElement
+const codeGapInput = document.getElementById("code-gap") as HTMLInputElement
+const codeRoundnessInput = document.getElementById("code-roundness") as HTMLInputElement
+const patternGapInput = document.getElementById("pattern-gap") as HTMLInputElement
+const patternRoundnessInput = document.getElementById("pattern-roundness") as HTMLInputElement
 const backgroundInput = document.getElementById("background") as HTMLInputElement
+const codeColorModeInput = document.getElementById("code-color-mode") as HTMLSelectElement
+const codeColorInput = document.getElementById("code-color") as HTMLInputElement
 const backgroundImageInput = document.getElementById("background-image") as HTMLInputElement
 const clearBackgroundImageButton = document.getElementById("clear-background-image") as HTMLButtonElement
 const message = document.getElementById("message") as HTMLParagraphElement
@@ -126,19 +146,52 @@ function drawRoundedCell(
   ctx.fill()
 }
 
-function isFinderModule(x: number, y: number, moduleCount: number, border: number) {
+function isPatternModule(x: number, y: number, moduleCount: number, border: number) {
   const qrSize = moduleCount - border * 2
   const qrX = x - border
   const qrY = y - border
-  const finderSize = 7
-  const inFinder = (left: number, top: number) =>
-    qrX >= left && qrX < left + finderSize && qrY >= top && qrY < top + finderSize
-
-  return (
-    inFinder(0, 0) ||
-    inFinder(qrSize - finderSize, 0) ||
-    inFinder(0, qrSize - finderSize)
+  return [...getFinderPositions(qrSize), ...getAlignmentPatternPositions(qrSize)].some(
+    ([left, top, size]) =>
+      qrX >= left && qrX < left + size && qrY >= top && qrY < top + size,
   )
+}
+
+type PatternPosition = [left: number, top: number, size: number]
+
+function getFinderPositions(qrSize: number): PatternPosition[] {
+  const finderSize = 7
+  return [
+    [0, 0, finderSize],
+    [qrSize - finderSize, 0, finderSize],
+    [0, qrSize - finderSize, finderSize],
+  ]
+}
+
+function getAlignmentPatternPositions(qrSize: number): PatternPosition[] {
+  const version = (qrSize - 17) / 4
+  if (!Number.isInteger(version) || version < 2) return []
+
+  const centerCount = Math.floor(version / 7) + 2
+  const step = version === 32
+    ? 26
+    : Math.ceil((version * 4 + centerCount * 2 + 1) / (centerCount * 2 - 2)) * 2
+  const centers = Array<number>(centerCount)
+  centers[0] = 6
+  for (let index = centerCount - 1, center = qrSize - 7; index >= 1; index--, center -= step) {
+    centers[index] = center
+  }
+
+  const lastCenter = centers.at(-1)
+  const positions: PatternPosition[] = []
+  for (const centerY of centers) {
+    for (const centerX of centers) {
+      const overlapsFinder =
+        (centerX === 6 && (centerY === 6 || centerY === lastCenter)) ||
+        (centerX === lastCenter && centerY === 6)
+      if (!overlapsFinder) positions.push([centerX - 2, centerY - 2, 5])
+    }
+  }
+  return positions
 }
 
 function drawBackground(ctx: CanvasRenderingContext2D, imageSize: number) {
@@ -155,7 +208,14 @@ function drawBackground(ctx: CanvasRenderingContext2D, imageSize: number) {
   ctx.drawImage(backgroundImage, (imageSize - width) / 2, (imageSize - height) / 2, width, height)
 }
 
-function getDotColor(
+function srgbToLinear(value: number) {
+  const normalized = value / 255
+  return normalized <= 0.04045
+    ? normalized / 12.92
+    : ((normalized + 0.055) / 1.055) ** 2.4
+}
+
+function getBackgroundLuminance(
   backgroundPixels: Uint8ClampedArray,
   imageSize: number,
   x: number,
@@ -164,20 +224,121 @@ function getDotColor(
   const sampleX = Math.min(imageSize - 1, Math.max(0, Math.floor(x)))
   const sampleY = Math.min(imageSize - 1, Math.max(0, Math.floor(y)))
   const pixelIndex = (sampleY * imageSize + sampleX) * 4
-  const brightness =
-    backgroundPixels[pixelIndex] * 0.299 +
-    backgroundPixels[pixelIndex + 1] * 0.587 +
-    backgroundPixels[pixelIndex + 2] * 0.114
+  return (
+    srgbToLinear(backgroundPixels[pixelIndex]) * 0.2126 +
+    srgbToLinear(backgroundPixels[pixelIndex + 1]) * 0.7152 +
+    srgbToLinear(backgroundPixels[pixelIndex + 2]) * 0.0722
+  )
+}
 
-  return brightness >= 160 ? "#000000" : "#ffffff"
+function getModuleLuminance(
+  backgroundPixels: Uint8ClampedArray,
+  imageSize: number,
+  moduleX: number,
+  moduleY: number,
+  moduleSize: number,
+) {
+  // 写真の細部やノイズに色分けが引っ張られないよう、セル内を面で評価する。
+  const samplesPerSide = 5
+  let luminance = 0
+  for (let sampleY = 0; sampleY < samplesPerSide; sampleY++) {
+    for (let sampleX = 0; sampleX < samplesPerSide; sampleX++) {
+      luminance += getBackgroundLuminance(
+        backgroundPixels,
+        imageSize,
+        (moduleX + (sampleX + 0.5) / samplesPerSide) * moduleSize,
+        (moduleY + (sampleY + 0.5) / samplesPerSide) * moduleSize,
+      )
+    }
+  }
+  return luminance / (samplesPerSide * samplesPerSide)
+}
+
+function createDotColorMap(
+  backgroundPixels: Uint8ClampedArray,
+  imageSize: number,
+  moduleCount: number,
+  moduleSize: number,
+) {
+  const luminanceMap = Array.from({length: moduleCount}, (_, y) =>
+    Array.from({length: moduleCount}, (_, x) =>
+      getModuleLuminance(backgroundPixels, imageSize, x, y, moduleSize),
+    ),
+  )
+
+  // 白と黒のコントラストが等しくなる相対輝度。近傍も加味して
+  // 写真の1セルだけが孤立して反転する「色のちらつき」を抑える。
+  const contrastCrossover = Math.sqrt(0.05 * 1.05) - 0.05
+  return luminanceMap.map((row, y) => row.map((luminance, x) => {
+    let nearbyLuminance = 0
+    let nearbyWeight = 0
+    for (let offsetY = -1; offsetY <= 1; offsetY++) {
+      for (let offsetX = -1; offsetX <= 1; offsetX++) {
+        const nearbyY = y + offsetY
+        const nearbyX = x + offsetX
+        if (nearbyY < 0 || nearbyY >= moduleCount || nearbyX < 0 || nearbyX >= moduleCount) continue
+        const weight = offsetX === 0 && offsetY === 0 ? 4 : 1
+        nearbyLuminance += luminanceMap[nearbyY][nearbyX] * weight
+        nearbyWeight += weight
+      }
+    }
+    const smoothedLuminance = nearbyLuminance / nearbyWeight
+    const effectiveLuminance = luminance * 0.7 + smoothedLuminance * 0.3
+    return effectiveLuminance >= contrastCrossover ? "#000000" : "#ffffff"
+  }))
+}
+
+function fillQrSafetyBackgrounds(
+  ctx: CanvasRenderingContext2D,
+  moduleCount: number,
+  border: number,
+  moduleSize: number,
+  color: string,
+) {
+  const qrSize = moduleCount - border * 2
+  const finderPositions = getFinderPositions(qrSize)
+  const alignmentPositions = getAlignmentPatternPositions(qrSize)
+  ctx.fillStyle = color
+
+  // QRの外周は画像を残さず、読み取りに必要なクワイエットゾーンを確保する。
+  ctx.fillRect(0, 0, moduleCount * moduleSize, border * moduleSize)
+  ctx.fillRect(0, (moduleCount - border) * moduleSize, moduleCount * moduleSize, border * moduleSize)
+  ctx.fillRect(0, border * moduleSize, border * moduleSize, qrSize * moduleSize)
+  ctx.fillRect((moduleCount - border) * moduleSize, border * moduleSize, border * moduleSize, qrSize * moduleSize)
+
+  // 検出パターンだけは写真に合わせて反転させず、白地に黒で固定する。
+  for (const [left, top] of finderPositions) {
+    for (let y = -1; y <= 7; y++) {
+      for (let x = -1; x <= 7; x++) {
+        const moduleX = border + left + x
+        const moduleY = border + top + y
+        if (moduleX < 0 || moduleX >= moduleCount || moduleY < 0 || moduleY >= moduleCount) continue
+        ctx.fillRect(moduleX * moduleSize, moduleY * moduleSize, moduleSize, moduleSize)
+      }
+    }
+  }
+
+  // アライメントパターンの白セルも画像で透けないよう、5×5全体を保護する。
+  for (const [left, top, size] of alignmentPositions) {
+    ctx.fillRect(
+      (border + left) * moduleSize,
+      (border + top) * moduleSize,
+      size * moduleSize,
+      size * moduleSize,
+    )
+  }
 }
 
 function updateLabels() {
   document.getElementById("size-value")!.textContent = sizeInput.value
   document.getElementById("border-value")!.textContent = borderInput.value
-  document.getElementById("gap-value")!.textContent = gapInput.value
-  document.getElementById("roundness-value")!.textContent = roundnessInput.value
-  roundnessInput.disabled = patternInput.value !== "maru" && finderPatternInput.value !== "maru"
+  document.getElementById("code-gap-value")!.textContent = codeGapInput.value
+  document.getElementById("code-roundness-value")!.textContent = codeRoundnessInput.value
+  document.getElementById("pattern-gap-value")!.textContent = patternGapInput.value
+  document.getElementById("pattern-roundness-value")!.textContent = patternRoundnessInput.value
+  codeRoundnessInput.disabled = patternInput.value !== "maru"
+  patternRoundnessInput.disabled = finderPatternInput.value !== "maru"
+  codeColorInput.disabled = codeColorModeInput.value === "auto"
 }
 
 function setSize(value: string) {
@@ -200,16 +361,16 @@ function renderQR() {
     const finderPattern = finderPatternInput.value
     const imageSize = Number(sizeInput.value)
     const border = Number(borderInput.value)
-    const gap = Number(gapInput.value) / 100
-    const roundness = Number(roundnessInput.value) / 100
+    const codeGap = Number(codeGapInput.value) / 100
+    const codeRoundness = Number(codeRoundnessInput.value) / 100
+    const patternGap = Number(patternGapInput.value) / 100
+    const patternRoundness = Number(patternRoundnessInput.value) / 100
     const qr = encodeQR(text, "raw", {
       ecc: eccInput.value as ErrorCorrection,
       border,
     })
     const moduleCount = qr.length
     const moduleSize = imageSize / moduleCount
-    const cellSize = moduleSize * (1 - gap)
-    const inset = (moduleSize - cellSize) / 2
     const canvas = document.createElement("canvas")
     canvas.width = imageSize
     canvas.height = imageSize
@@ -217,19 +378,28 @@ function renderQR() {
     const ctx = canvas.getContext("2d")!
     drawBackground(ctx, imageSize)
     const backgroundPixels = ctx.getImageData(0, 0, imageSize, imageSize).data
+    const useAutomaticCodeColor = codeColorModeInput.value === "auto"
+    const dotColorMap = useAutomaticCodeColor
+      ? createDotColorMap(backgroundPixels, imageSize, moduleCount, moduleSize)
+      : null
+    const finderPatternColor = "#000000"
+    const finderPatternBackgroundColor = "#ffffff"
+    fillQrSafetyBackgrounds(ctx, moduleCount, border, moduleSize, finderPatternBackgroundColor)
 
     for (let y = 0; y < moduleCount; y++) {
       for (let x = 0; x < moduleCount; x++) {
         if (!qr[y][x]) continue
+        const isPattern = isPatternModule(x, y, moduleCount, border)
+        const shape = isPattern ? finderPattern : pattern
+        const gap = isPattern ? patternGap : codeGap
+        const roundness = isPattern ? patternRoundness : codeRoundness
+        const cellSize = moduleSize * (1 - gap)
+        const inset = (moduleSize - cellSize) / 2
         const cellX = x * moduleSize + inset
         const cellY = y * moduleSize + inset
-        const shape = isFinderModule(x, y, moduleCount, border) ? finderPattern : pattern
-        ctx.fillStyle = getDotColor(
-          backgroundPixels,
-          imageSize,
-          (x + 0.5) * moduleSize,
-          (y + 0.5) * moduleSize,
-        )
+        ctx.fillStyle = isPattern
+          ? finderPatternColor
+          : dotColorMap?.[y][x] ?? codeColorInput.value
         if (shape === "maru") {
           const overlap = gap === 0 && roundness === 1 ? Math.min(0.75, moduleSize * 0.08) : 0
           drawRoundedCell(ctx, cellX, cellY, cellSize, (cellSize / 2) * roundness, overlap)
@@ -258,7 +428,19 @@ sizeNumberInput.addEventListener("change", () => {
   if (textInput.value) renderQR()
 })
 
-const controls = [patternInput, finderPatternInput, eccInput, borderInput, gapInput, roundnessInput, backgroundInput]
+const controls = [
+  patternInput,
+  finderPatternInput,
+  eccInput,
+  borderInput,
+  codeGapInput,
+  codeRoundnessInput,
+  patternGapInput,
+  patternRoundnessInput,
+  backgroundInput,
+  codeColorModeInput,
+  codeColorInput,
+]
 controls.forEach((control) => {
   control.addEventListener("input", () => {
     updateLabels()
@@ -351,6 +533,11 @@ updateLabels()
         grid-column: 1 / -1;
     }
     .color-inputs input {
+        width: 100%;
+        min-height: 32px;
+        box-sizing: border-box;
+    }
+    .color-inputs select {
         width: 100%;
         min-height: 32px;
         box-sizing: border-box;
