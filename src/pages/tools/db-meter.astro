@@ -1,0 +1,154 @@
+---
+import Layout from "../../layouts/layout.astro";
+import A from "../../components/A.astro";
+import "../../style/audio-tool.css";
+---
+
+<Layout title="dBメーター">
+  <div class="audio-page">
+    <A class="back" href="/tools">← 道具箱へ戻る</A>
+    <h2>dBメーター</h2>
+    <p class="lead">マイクが拾っている音量をリアルタイムに表示します。</p>
+    <section class="audio-visualizer" aria-label="マイクの音量">
+      <canvas id="spectrum" aria-hidden="true"></canvas>
+      <div class="audio-center" aria-live="polite">
+        <div class="meter-modes" aria-label="音量単位">
+          <button class="mode-button" type="button" data-mode="dbfs" aria-pressed="true">dBFS</button>
+          <button class="mode-button" type="button" data-mode="dbspl" aria-pressed="false">dB SPL</button>
+        </div>
+        <p class="audio-value"><span id="dbValue">--</span><span class="unit" id="dbUnit">dBFS</span></p>
+        <label class="spl-calibration" id="splCalibration" for="splOffset" hidden>
+          SPL補正
+          <input class="audio-input" id="splOffset" type="number" min="60" max="140" step="0.1" value="100" inputmode="decimal" /> dB
+        </label>
+      </div>
+      <div class="audio-controls">
+        <button class="audio-button" id="toggle" type="button">マイクを開始</button>
+      </div>
+    </section>
+    <p class="meter-note" id="meterNote">※ dBFSは端末内の最大入力を0 dBとする相対値です。</p>
+  </div>
+</Layout>
+
+<script>
+  import { rmsToDb } from "../../lib/audio-analysis";
+
+  const canvas = document.querySelector<HTMLCanvasElement>("#spectrum")!;
+  const ctx = canvas.getContext("2d")!;
+  const button = document.querySelector<HTMLButtonElement>("#toggle")!;
+  const value = document.querySelector<HTMLElement>("#dbValue")!;
+  const unit = document.querySelector<HTMLElement>("#dbUnit")!;
+  const note = document.querySelector<HTMLElement>("#meterNote")!;
+  const calibration = document.querySelector<HTMLElement>("#splCalibration")!;
+  const offsetInput = document.querySelector<HTMLInputElement>("#splOffset")!;
+  const modeButtons = document.querySelectorAll<HTMLButtonElement>(".mode-button");
+  let audioContext: AudioContext | null = null;
+  let analyser: AnalyserNode | null = null;
+  let stream: MediaStream | null = null;
+  let frame = 0;
+  let displayDb = -100;
+  let mode: "dbfs" | "dbspl" = "dbfs";
+
+  const savedOffset = Number(localStorage.getItem("dbspl-offset"));
+  if (savedOffset >= 60 && savedOffset <= 140) offsetInput.value = String(savedOffset);
+
+  function setMode(nextMode: "dbfs" | "dbspl") {
+    mode = nextMode;
+    unit.textContent = mode === "dbfs" ? "dBFS" : "dB SPL";
+    calibration.hidden = mode !== "dbspl";
+    note.textContent = mode === "dbfs"
+      ? "※ dBFSは端末内の最大入力を0 dBとする相対値です。"
+      : "※ dB SPLは端末ごとにマイク感度が異なるため目安です。外部騒音計に合わせてSPL補正を調整してください。";
+    modeButtons.forEach((item) => item.setAttribute("aria-pressed", String(item.dataset.mode === mode)));
+  }
+
+  function resize() {
+    const rect = canvas.getBoundingClientRect();
+    const ratio = Math.min(devicePixelRatio || 1, 2);
+    canvas.width = Math.round(rect.width * ratio);
+    canvas.height = Math.round(rect.height * ratio);
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+  }
+
+  function draw() {
+    if (!analyser) return;
+    const width = canvas.clientWidth;
+    const height = canvas.clientHeight;
+    const waveform = new Float32Array(analyser.fftSize);
+    const spectrum = new Uint8Array(analyser.frequencyBinCount);
+    analyser.getFloatTimeDomainData(waveform);
+    analyser.getByteFrequencyData(spectrum);
+
+    const measured = rmsToDb(waveform);
+    displayDb = displayDb < -95 ? measured : displayDb * .82 + measured * .18;
+    const displayedValue = mode === "dbspl" ? displayDb + Number(offsetInput.value || 100) : displayDb;
+    value.textContent = displayDb <= -99 ? "−∞" : displayedValue.toFixed(1).replace("-", "−");
+
+    ctx.clearRect(0, 0, width, height);
+    ctx.beginPath();
+    ctx.moveTo(0, height);
+    const points = 110;
+    for (let i = 0; i <= points; i++) {
+      const index = Math.min(spectrum.length - 1, Math.round((i / points) ** 2.1 * spectrum.length * .62));
+      const rawLevel = spectrum[index];
+      const amplitude = rawLevel < 42 ? 0 : (rawLevel - 42) / 213;
+      const x = i / points * width;
+      const y = Math.round(height - 42 - amplitude * height * .72);
+      ctx.lineTo(x, y);
+    }
+    ctx.lineTo(width, height);
+    ctx.closePath();
+    ctx.fillStyle = "rgba(78, 184, 255, .22)";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(129, 228, 218, .82)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    frame = requestAnimationFrame(draw);
+  }
+
+  async function start() {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+      audioContext = new AudioContext();
+      analyser = audioContext.createAnalyser();
+      analyser.fftSize = 2048;
+      analyser.smoothingTimeConstant = .78;
+      audioContext.createMediaStreamSource(stream).connect(analyser);
+      button.textContent = "停止";
+      button.dataset.running = "true";
+      draw();
+    } catch {
+      button.textContent = "マイクを利用できません";
+    }
+  }
+
+  function stop() {
+    cancelAnimationFrame(frame);
+    stream?.getTracks().forEach((track) => track.stop());
+    audioContext?.close();
+    stream = null; audioContext = null; analyser = null;
+    button.textContent = "マイクを開始";
+    button.dataset.running = "false";
+    value.textContent = "--";
+    ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
+  }
+
+  button.addEventListener("click", () => analyser ? stop() : start());
+  modeButtons.forEach((item) => item.addEventListener("click", () => setMode(item.dataset.mode as "dbfs" | "dbspl")));
+  offsetInput.addEventListener("change", () => {
+    const offset = Math.max(60, Math.min(140, Number(offsetInput.value) || 100));
+    offsetInput.value = String(offset);
+    localStorage.setItem("dbspl-offset", String(offset));
+  });
+  window.addEventListener("pagehide", stop);
+  new ResizeObserver(resize).observe(canvas);
+</script>
+
+<style>
+  .meter-note { color: #91a5b5; font-size: .82rem; line-height: 1.7; }
+  .meter-modes { display: flex; gap: 6px; margin-bottom: 18px; pointer-events: auto; }
+  .mode-button { border: 1px solid rgba(255,255,255,.2); border-radius: 999px; padding: 7px 14px; color: #b8c5d1; background: #14202c; font: inherit; font-weight: 700; cursor: pointer; }
+  .mode-button[aria-pressed="true"] { border-color: #81e4da; color: #09201f; background: #81e4da; }
+  .spl-calibration { display: flex; align-items: center; gap: 8px; margin-top: 18px; color: #b8c5d1; font-size: .85rem; pointer-events: auto; }
+  .spl-calibration[hidden] { display: none; }
+</style>

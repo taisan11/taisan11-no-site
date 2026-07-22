@@ -1,0 +1,120 @@
+---
+import Layout from "../../layouts/layout.astro";
+import A from "../../components/A.astro";
+import "../../style/audio-tool.css";
+---
+
+<Layout title="チューナー">
+  <div class="audio-page">
+    <A class="back" href="/tools">← 道具箱へ戻る</A>
+    <h2>チューナー</h2>
+    <p class="lead">基準となるA4の周波数を設定して、音程のずれを確認できます。</p>
+    <section class="audio-visualizer tuner" aria-label="チューナー">
+      <canvas id="tunerGauge" aria-hidden="true"></canvas>
+      <div class="audio-center" aria-live="polite">
+        <p class="audio-value audio-note" id="noteValue">--</p>
+        <p class="audio-subvalue"><span id="centsValue">--</span> <span class="unit">cent</span></p>
+        <p class="tune-message" id="tuneMessage">音を鳴らしてください</p>
+      </div>
+      <div class="audio-controls">
+        <label class="audio-input-wrap" for="reference">A4 =
+          <input class="audio-input" id="reference" type="number" min="400" max="480" step="1" value="440" inputmode="decimal" /> Hz
+        </label>
+        <button class="audio-button" id="toggle" type="button">マイクを開始</button>
+      </div>
+    </section>
+  </div>
+</Layout>
+
+<script>
+  import { detectPitch, frequencyToNote } from "../../lib/audio-analysis";
+  const canvas = document.querySelector<HTMLCanvasElement>("#tunerGauge")!;
+  const ctx = canvas.getContext("2d")!;
+  const button = document.querySelector<HTMLButtonElement>("#toggle")!;
+  const referenceInput = document.querySelector<HTMLInputElement>("#reference")!;
+  const noteValue = document.querySelector<HTMLElement>("#noteValue")!;
+  const centsValue = document.querySelector<HTMLElement>("#centsValue")!;
+  const message = document.querySelector<HTMLElement>("#tuneMessage")!;
+  let audioContext: AudioContext | null = null, analyser: AnalyserNode | null = null, stream: MediaStream | null = null;
+  let frame = 0, tick = 0, currentFrequency = 0, currentCents: number | null = null, missingFrames = 0;
+
+  const savedReference = Number(localStorage.getItem("tuner-reference"));
+  if (savedReference >= 400 && savedReference <= 480) referenceInput.value = String(savedReference);
+
+  function resize() {
+    const rect = canvas.getBoundingClientRect(); const ratio = Math.min(devicePixelRatio || 1, 2);
+    canvas.width = Math.round(rect.width * ratio); canvas.height = Math.round(rect.height * ratio);
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0); drawGauge();
+  }
+
+  function drawGauge() {
+    const width = canvas.clientWidth, height = canvas.clientHeight;
+    ctx.clearRect(0, 0, width, height);
+    const left = width * .1, right = width * .9, y = Math.max(95, height * .23);
+    ctx.strokeStyle = "rgba(255,255,255,.12)"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(left, y); ctx.lineTo(right, y); ctx.stroke();
+    ctx.font = "11px system-ui"; ctx.textAlign = "center"; ctx.fillStyle = "rgba(199,213,223,.55)";
+    for (let cents = -50; cents <= 50; cents += 10) {
+      const x = left + (cents + 50) / 100 * (right - left);
+      const size = cents === 0 ? 22 : cents % 25 === 0 ? 15 : 9;
+      ctx.strokeStyle = cents === 0 ? "rgba(129,228,218,.8)" : "rgba(255,255,255,.22)";
+      ctx.beginPath(); ctx.moveTo(x, y - size / 2); ctx.lineTo(x, y + size / 2); ctx.stroke();
+      if (cents % 25 === 0) ctx.fillText(cents > 0 ? `+${cents}` : String(cents), x, y - 19);
+    }
+    if (currentCents !== null) {
+      const shown = Math.max(-50, Math.min(50, currentCents));
+      const x = left + (shown + 50) / 100 * (right - left);
+      const color = Math.abs(currentCents) <= 5 ? "#81e4da" : "#4eb8ff";
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.moveTo(x, y + 19); ctx.lineTo(x - 9, y + 38); ctx.lineTo(x + 9, y + 38); ctx.closePath(); ctx.fill();
+    }
+  }
+
+  function updateReading() {
+    if (!analyser || !audioContext) return;
+    if (tick++ % 3 === 0) {
+      const waveform = new Float32Array(analyser.fftSize); analyser.getFloatTimeDomainData(waveform);
+      const pitch = detectPitch(waveform, audioContext.sampleRate);
+      if (pitch) {
+        currentFrequency = currentFrequency ? currentFrequency * .6 + pitch.frequency * .4 : pitch.frequency;
+        const reference = Math.max(400, Math.min(480, Number(referenceInput.value) || 440));
+        const note = frequencyToNote(currentFrequency, reference);
+        currentCents = note.cents;
+        noteValue.textContent = `${note.name}${note.octave}`;
+        centsValue.textContent = `${currentCents >= 0 ? "+" : ""}${currentCents.toFixed(1)}`.replace("-", "−");
+        if (Math.abs(currentCents) <= 5) message.textContent = "ぴったりです";
+        else if (currentCents < 0) message.textContent = "低めです ↑";
+        else message.textContent = "高めです ↓";
+        missingFrames = 0;
+      } else if (++missingFrames > 12) {
+        currentFrequency = 0; currentCents = null; noteValue.textContent = "--"; centsValue.textContent = "--"; message.textContent = "音を鳴らしてください";
+      }
+    }
+    drawGauge(); frame = requestAnimationFrame(updateReading);
+  }
+
+  async function start() {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+      audioContext = new AudioContext(); analyser = audioContext.createAnalyser(); analyser.fftSize = 4096; analyser.smoothingTimeConstant = .4;
+      audioContext.createMediaStreamSource(stream).connect(analyser);
+      button.textContent = "停止"; button.dataset.running = "true"; updateReading();
+    } catch { button.textContent = "マイクを利用できません"; }
+  }
+  function stop() {
+    cancelAnimationFrame(frame); stream?.getTracks().forEach((track) => track.stop()); audioContext?.close(); stream = null; audioContext = null; analyser = null;
+    currentFrequency = 0; currentCents = null; button.textContent = "マイクを開始"; button.dataset.running = "false";
+    noteValue.textContent = "--"; centsValue.textContent = "--"; message.textContent = "音を鳴らしてください"; drawGauge();
+  }
+  referenceInput.addEventListener("change", () => {
+    const reference = Math.max(400, Math.min(480, Number(referenceInput.value) || 440));
+    referenceInput.value = String(reference); localStorage.setItem("tuner-reference", String(reference));
+  });
+  button.addEventListener("click", () => analyser ? stop() : start());
+  window.addEventListener("pagehide", stop); new ResizeObserver(resize).observe(canvas);
+</script>
+
+<style>
+  .tune-message { min-height: 1.4em; margin: 10px 0 75px; color: #81e4da; font-weight: 700; }
+  @media (max-width: 560px) { .tune-message { margin-bottom: 120px; } }
+</style>

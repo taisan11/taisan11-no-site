@@ -1,0 +1,103 @@
+---
+import Layout from "../../layouts/layout.astro";
+import A from "../../components/A.astro";
+import "../../style/audio-tool.css";
+---
+
+<Layout title="音階チェッカー">
+  <div class="audio-page">
+    <A class="back" href="/tools">← 道具箱へ戻る</A>
+    <h2>音階チェッカー</h2>
+    <p class="lead">いま鳴っている音の中から、もっとも強い音程を判定します。</p>
+    <section class="audio-visualizer" aria-label="現在の音階">
+      <canvas id="pitchGraph" aria-hidden="true"></canvas>
+      <div class="audio-center" aria-live="polite">
+        <p class="audio-value audio-note" id="noteValue">--</p>
+        <p class="audio-subvalue"><span id="frequencyValue">--</span> <span class="unit">Hz</span></p>
+      </div>
+      <div class="audio-controls">
+        <button class="audio-button" id="toggle" type="button">マイクを開始</button>
+      </div>
+    </section>
+  </div>
+</Layout>
+
+<script>
+  import { detectPitch, frequencyToNote, frequencyToX } from "../../lib/audio-analysis";
+  const canvas = document.querySelector<HTMLCanvasElement>("#pitchGraph")!;
+  const ctx = canvas.getContext("2d")!;
+  const button = document.querySelector<HTMLButtonElement>("#toggle")!;
+  const noteValue = document.querySelector<HTMLElement>("#noteValue")!;
+  const frequencyValue = document.querySelector<HTMLElement>("#frequencyValue")!;
+  let audioContext: AudioContext | null = null, analyser: AnalyserNode | null = null, stream: MediaStream | null = null;
+  let frame = 0, tick = 0, currentFrequency = 0, missingFrames = 0;
+
+  function resize() {
+    const rect = canvas.getBoundingClientRect();
+    const ratio = Math.min(devicePixelRatio || 1, 2);
+    canvas.width = Math.round(rect.width * ratio); canvas.height = Math.round(rect.height * ratio);
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+  }
+
+  function drawBars(spectrum: Uint8Array) {
+    const width = canvas.clientWidth, height = canvas.clientHeight;
+    ctx.clearRect(0, 0, width, height);
+    const bars = Math.max(38, Math.floor(width / 12));
+    const gap = 3, barWidth = width / bars - gap;
+    for (let i = 0; i < bars; i++) {
+      const ratio = i / (bars - 1);
+      const frequency = 55 * (5000 / 55) ** ratio;
+      const index = Math.min(spectrum.length - 1, Math.round(frequency / (audioContext!.sampleRate / 2) * spectrum.length));
+      const rawLevel = spectrum[index];
+      const level = rawLevel < 42 ? 0 : (rawLevel - 42) / 213;
+      const barHeight = 12 + level * height * .68;
+      ctx.fillStyle = `rgba(78, 184, 255, ${.08 + level * .5})`;
+      ctx.fillRect(i * width / bars + gap / 2, height - barHeight, barWidth, barHeight);
+    }
+    if (currentFrequency > 0) {
+      const x = frequencyToX(currentFrequency, width);
+      ctx.strokeStyle = "#81e4da"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(x, 40); ctx.lineTo(x, height - 35); ctx.stroke();
+      ctx.fillStyle = "#81e4da"; ctx.beginPath(); ctx.arc(x, 40, 5, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  function draw() {
+    if (!analyser || !audioContext) return;
+    const waveform = new Float32Array(analyser.fftSize);
+    const spectrum = new Uint8Array(analyser.frequencyBinCount);
+    analyser.getFloatTimeDomainData(waveform); analyser.getByteFrequencyData(spectrum);
+    if (tick++ % 3 === 0) {
+      const pitch = detectPitch(waveform, audioContext.sampleRate);
+      if (pitch) {
+        currentFrequency = currentFrequency ? currentFrequency * .65 + pitch.frequency * .35 : pitch.frequency;
+        const note = frequencyToNote(currentFrequency);
+        noteValue.textContent = `${note.name}${note.octave}`;
+        frequencyValue.textContent = currentFrequency.toFixed(1);
+        missingFrames = 0;
+      } else if (++missingFrames > 12) {
+        currentFrequency = 0; noteValue.textContent = "--"; frequencyValue.textContent = "--";
+      }
+    }
+    drawBars(spectrum);
+    frame = requestAnimationFrame(draw);
+  }
+
+  async function start() {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+      audioContext = new AudioContext(); analyser = audioContext.createAnalyser();
+      analyser.fftSize = 4096; analyser.smoothingTimeConstant = .7;
+      audioContext.createMediaStreamSource(stream).connect(analyser);
+      button.textContent = "停止"; button.dataset.running = "true"; draw();
+    } catch { button.textContent = "マイクを利用できません"; }
+  }
+  function stop() {
+    cancelAnimationFrame(frame); stream?.getTracks().forEach((track) => track.stop()); audioContext?.close();
+    stream = null; audioContext = null; analyser = null; currentFrequency = 0;
+    button.textContent = "マイクを開始"; button.dataset.running = "false";
+    noteValue.textContent = "--"; frequencyValue.textContent = "--"; ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
+  }
+  button.addEventListener("click", () => analyser ? stop() : start());
+  window.addEventListener("pagehide", stop); new ResizeObserver(resize).observe(canvas);
+</script>

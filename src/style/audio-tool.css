@@ -1,0 +1,75 @@
+.audio-page {
+  width: min(920px, 100%);
+  margin: 0 auto;
+}
+
+.audio-page *, .audio-page *::before, .audio-page *::after { box-sizing: border-box; }
+.audio-page .back { display: inline-block; margin-bottom: 14px; }
+.audio-page h2 { margin: 0; font-size: clamp(1.35rem, 3vw, 2rem); }
+.audio-page .lead { color: #b8c5d1; margin: 7px 0 18px; }
+
+.audio-visualizer {
+  position: relative;
+  min-height: clamp(390px, 62vh, 590px);
+  overflow: hidden;
+  border: 1px solid rgba(129, 228, 218, 0.28);
+  border-radius: 26px;
+  background: #14202c;
+}
+
+.audio-visualizer canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.audio-center {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  padding: 28px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.audio-value { margin: 7px 0 0; font-size: clamp(4.8rem, 17vw, 10rem); font-weight: 800; line-height: .95; letter-spacing: -.07em; }
+.audio-value .unit { margin-left: .12em; color: #81e4da; font-size: .28em; letter-spacing: 0; }
+.audio-subvalue { margin-top: 16px; font-size: clamp(1.3rem, 4vw, 2.15rem); color: #c7d5df; font-variant-numeric: tabular-nums; }
+.audio-subvalue .unit { color: #81e4da; font-size: .55em; }
+
+.audio-controls {
+  position: absolute;
+  z-index: 5;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: calc(100% - 32px);
+}
+
+.audio-button {
+  appearance: none;
+  border: 0;
+  border-radius: 999px;
+  padding: 12px 22px;
+  color: #09201f;
+  background: #81e4da;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+.audio-button:hover { background: #a3eee7; }
+.audio-button:focus-visible, .audio-input:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+.audio-button[data-running="true"] { color: #e8f3f3; background: rgba(255, 255, 255, .12); }
+.audio-input-wrap { display: flex; align-items: center; gap: 8px; color: #b8c5d1; }
+.audio-input { width: 78px; border: 1px solid rgba(255,255,255,.18); border-radius: 9px; padding: 9px; color: white; background: rgba(3, 10, 15, .55); font: inherit; font-variant-numeric: tabular-nums; }
+.audio-note { letter-spacing: -.04em; }
+
+@media (max-width: 560px) {
+  .audio-visualizer { min-height: 520px; border-radius: 20px; }
+  .audio-controls { flex-direction: column; }
+}
+
+@media (prefers-reduced-motion: reduce) { .audio-button { transition: none; } }
