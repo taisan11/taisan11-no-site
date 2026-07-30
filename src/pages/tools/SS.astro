@@ -1,0 +1,258 @@
+---
+import Layout from "../../layouts/layout.astro";
+import A from "../../components/A.astro";
+---
+
+<Layout title="画面キャプチャ">
+    <div class="nue">
+      <A href="/tools">← 戻る</A><br/>
+      <div class="capture-tool">
+          <h2>画面キャプチャ</h2>
+          <p class="description">
+            ブラウザーの画面キャプチャ API を使って、選択した画面をプレビューし、画像として保存できます。
+          </p>
+
+          <div class="controls" aria-label="画面キャプチャの操作">
+            <button id="startCapture" type="button">画面を選択</button>
+            <button id="Shutter" type="button" disabled aria-label="スクリーンショットを保存">📸 スクリーンショット</button>
+            <button id="stopCapture" type="button" disabled>停止</button>
+          </div>
+
+          <p id="status" class="status" role="status" aria-live="polite">
+            「画面を選択」から共有する画面・ウィンドウ・タブを選んでください。
+          </p>
+
+          <div class="preview-frame">
+            <video id="Preview" autoplay playsinline muted></video>
+            <p id="emptyPreview" class="empty-preview">プレビューはここに表示されます</p>
+          </div>
+
+          <div id="snapshotPanel" class="snapshot-panel" hidden>
+            <h3>撮影した画像</h3>
+            <img id="snapshot" alt="撮影した画面のスクリーンショット" />
+            <a id="downloadSnapshot" class="download-link" download="screen-capture.png">画像を保存</a>
+          </div>
+
+          <canvas id="captureCanvas" hidden></canvas>
+      </div>
+  </div>
+</Layout>
+
+<script>
+  const startButton = document.querySelector<HTMLButtonElement>("#startCapture")!;
+  const shutterButton = document.querySelector<HTMLButtonElement>("#Shutter")!;
+  const stopButton = document.querySelector<HTMLButtonElement>("#stopCapture")!;
+  const preview = document.querySelector<HTMLVideoElement>("#Preview")!;
+  const status = document.querySelector<HTMLParagraphElement>("#status")!;
+  const emptyPreview = document.querySelector<HTMLParagraphElement>("#emptyPreview")!;
+  const canvas = document.querySelector<HTMLCanvasElement>("#captureCanvas")!;
+  const snapshotPanel = document.querySelector<HTMLDivElement>("#snapshotPanel")!;
+  const snapshot = document.querySelector<HTMLImageElement>("#snapshot")!;
+  const downloadSnapshot = document.querySelector<HTMLAnchorElement>("#downloadSnapshot")!;
+
+  let stream: MediaStream | null = null;
+  let snapshotUrl: string | null = null;
+
+  function setStatus(message: string, kind: "info" | "error" = "info") {
+    status.textContent = message;
+    status.dataset.kind = kind;
+  }
+
+  function stopCapture() {
+    if (stream) {
+      stream.getTracks().forEach((track) => track.stop());
+      stream = null;
+    }
+    preview.srcObject = null;
+    preview.classList.remove("is-visible");
+    emptyPreview.hidden = false;
+    startButton.disabled = false;
+    shutterButton.disabled = true;
+    stopButton.disabled = true;
+  }
+
+  async function startCapture() {
+    if (!navigator.mediaDevices?.getDisplayMedia) {
+      setStatus("このブラウザーは画面キャプチャに対応していません。", "error");
+      return;
+    }
+
+    stopCapture();
+    setStatus("共有する画面を選択してください…");
+
+    try {
+      // getDisplayMedia() はユーザー操作から呼び出す必要があります。
+      stream = await navigator.mediaDevices.getDisplayMedia({
+        video: { cursor: "always" },
+        audio: false,
+      });
+
+      preview.srcObject = stream;
+      await preview.play();
+      preview.classList.add("is-visible");
+      emptyPreview.hidden = true;
+      startButton.disabled = true;
+      shutterButton.disabled = false;
+      stopButton.disabled = false;
+      setStatus("共有中です。プレビューを確認して撮影してください。");
+
+      const [videoTrack] = stream.getVideoTracks();
+      videoTrack?.addEventListener("ended", () => {
+        stopCapture();
+        setStatus("画面共有が終了しました。もう一度選択できます。");
+      }, { once: true });
+    } catch (error) {
+      stopCapture();
+      if (error instanceof DOMException && error.name === "NotAllowedError") {
+        setStatus("画面共有がキャンセルされたか、許可されませんでした。", "error");
+      } else {
+        setStatus("画面を取得できませんでした。もう一度お試しください。", "error");
+        console.error(error);
+      }
+    }
+  }
+
+  function takeScreenshot() {
+    if (!stream || preview.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || !preview.videoWidth || !preview.videoHeight) {
+      setStatus("先に画面を選択して、プレビューが表示されるまでお待ちください。", "error");
+      return;
+    }
+
+    canvas.width = preview.videoWidth;
+    canvas.height = preview.videoHeight;
+    const context = canvas.getContext("2d");
+    if (!context) {
+      setStatus("スクリーンショットを作成できませんでした。", "error");
+      return;
+    }
+
+    context.drawImage(preview, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        setStatus("スクリーンショットを作成できませんでした。", "error");
+        return;
+      }
+
+      if (snapshotUrl) URL.revokeObjectURL(snapshotUrl);
+      snapshotUrl = URL.createObjectURL(blob);
+      snapshot.src = snapshotUrl;
+      downloadSnapshot.href = snapshotUrl;
+      const timestamp = new Date().toISOString().replace(/[.:]/g, "-").replace("T", "_").slice(0, 19);
+      downloadSnapshot.download = `screen-capture-${timestamp}.png`;
+      snapshotPanel.hidden = false;
+      setStatus("スクリーンショットを作成しました。下のリンクから保存できます。");
+    }, "image/png");
+  }
+
+  startButton.addEventListener("click", startCapture);
+  stopButton.addEventListener("click", () => {
+    stopCapture();
+    setStatus("画面共有を停止しました。再開するには「画面を選択」を押してください。");
+  });
+  shutterButton.addEventListener("click", takeScreenshot);
+  window.addEventListener("pagehide", () => {
+    stopCapture();
+    if (snapshotUrl) URL.revokeObjectURL(snapshotUrl);
+  });
+</script>
+
+<style is:global>
+    .nue {}
+    .capture-tool {
+        max-width: 960px;
+        margin: 0 auto;
+        text-align: center;
+    }
+    .description {
+        max-width: 680px;
+        margin: 0 auto 1rem;
+        line-height: 1.7;
+    }
+    .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        justify-content: center;
+        margin: 1rem 0;
+    }
+    .controls button,
+    .download-link {
+        border: 1px solid #78c8ff;
+        border-radius: 0.5rem;
+        background: #183246;
+        color: white;
+        cursor: pointer;
+        font: inherit;
+        padding: 0.6rem 1rem;
+        text-decoration: none;
+        transition: background-color 0.15s ease, opacity 0.15s ease;
+    }
+    .controls button:hover:not(:disabled),
+    .download-link:hover {
+        background: #285a7a;
+    }
+    .controls button:disabled {
+        cursor: not-allowed;
+        opacity: 0.45;
+    }
+    .status {
+        min-height: 1.5em;
+        margin: 0.75rem 0;
+    }
+    .status[data-kind="error"] {
+        color: #ffb4b4;
+    }
+    .preview-frame {
+        position: relative;
+        display: grid;
+        place-items: center;
+        min-height: 240px;
+        overflow: hidden;
+        border: 1px solid #557084;
+        border-radius: 0.75rem;
+        background: #17232d;
+    }
+    #Preview {
+        display: none;
+        width: 100%;
+        height: auto;
+        max-height: 70vh;
+        object-fit: contain;
+    }
+    #Preview.is-visible {
+        display: block;
+    }
+    .empty-preview {
+        margin: 1rem;
+        color: #aebdca;
+    }
+    .snapshot-panel {
+        margin-top: 1.5rem;
+    }
+    .snapshot-panel h3 {
+        margin-bottom: 0.75rem;
+    }
+    #snapshot {
+        display: block;
+        width: 100%;
+        max-height: 60vh;
+        margin: 0 auto 1rem;
+        border: 1px solid #557084;
+        border-radius: 0.5rem;
+        object-fit: contain;
+    }
+    @media (orientation: landscape) {
+        .nue {
+            width: 50vw;
+            margin: 0 auto;
+        }
+    }
+    @media (max-width: 600px) {
+        .controls button {
+            flex: 1 1 100%;
+        }
+        .preview-frame {
+            min-height: 180px;
+        }
+    }
+</style>
