@@ -1,0 +1,94 @@
+---
+import Layout from "../../layouts/layout.astro";
+import A from "../../components/A.astro";
+---
+
+<Layout title="画像リサイズ・切り抜き | taisan11のサイト">
+  <div class="nue">
+    <A href="/tools">← 戻る</A>
+    <h2>画像リサイズ・切り抜き</h2>
+    <p>画像を選択し、切り抜き範囲を指定して WebP に変換します。</p>
+
+    <form id="image-form">
+      <label class="file-label">画像ファイル
+        <input id="image" name="image" type="file" accept="image/*" required />
+      </label>
+
+      <fieldset>
+        <legend>切り抜き（不要なら空欄）</legend>
+        <div class="fields crop-fields">
+          <label>x <input name="cropLeft" type="number" min="0" step="1" placeholder="0" /></label>
+          <label>y <input name="cropTop" type="number" min="0" step="1" placeholder="0" /></label>
+          <label>幅 <input name="cropWidth" type="number" min="1" step="1" placeholder="元画像" /></label>
+          <label>高さ <input name="cropHeight" type="number" min="1" step="1" placeholder="元画像" /></label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>リサイズ</legend>
+        <div class="fields">
+          <label>幅 <input name="width" type="number" min="1" max="8000" value="1200" required /></label>
+          <label>高さ <input name="height" type="number" min="1" max="8000" value="1200" required /></label>
+          <label>方式
+            <select name="fit">
+              <option value="inside">縦横比を維持（内側）</option>
+              <option value="outside">縦横比を維持（外側）</option>
+              <option value="cover">枠いっぱいに切り抜き</option>
+              <option value="contain">余白を追加</option>
+              <option value="fill">縦横比を無視</option>
+            </select>
+          </label>
+        </div>
+      </fieldset>
+
+      <button type="submit">処理してダウンロード</button>
+      <p id="status" role="status" aria-live="polite"></p>
+    </form>
+  </div>
+</Layout>
+
+<script>
+  const form = document.querySelector<HTMLFormElement>("#image-form")!;
+  const imageInput = document.querySelector<HTMLInputElement>("#image")!;
+  const status = document.querySelector<HTMLParagraphElement>("#status")!;
+  const submit = form.querySelector<HTMLButtonElement>("button[type=submit]")!;
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!imageInput.files?.length) return;
+    submit.disabled = true;
+    status.textContent = "処理中…";
+    try {
+      const response = await fetch("/api/image-transform", { method: "POST", body: new FormData(form) });
+      if (!response.ok) {
+        const result = await response.json().catch(() => null);
+        throw new Error(result?.error || "画像を処理できませんでした");
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "resized.webp";
+      link.click();
+      URL.revokeObjectURL(url);
+      status.textContent = "完了しました。ダウンロードを開始します。";
+    } catch (error) {
+      status.textContent = error instanceof Error ? error.message : "画像を処理できませんでした";
+    } finally {
+      submit.disabled = false;
+    }
+  });
+</script>
+
+<style is:global>
+  .nue { max-width: 720px; margin: 0 auto; }
+  h2 { text-align: center; }
+  form { display: grid; gap: 1rem; }
+  fieldset { border: 1px solid #6f8298; border-radius: 6px; padding: 1rem; }
+  .file-label, label { display: grid; gap: .35rem; }
+  .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: .75rem; }
+  input, select, button { font: inherit; padding: .5rem; border-radius: 4px; border: 1px solid #8fa3b9; }
+  button { cursor: pointer; background: #4eb8ff; color: #102333; border: 0; font-weight: 700; }
+  button:disabled { opacity: .6; cursor: wait; }
+  #status { min-height: 1.5em; }
+</style>
