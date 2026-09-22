@@ -90,7 +90,7 @@ import A from "../../components/A.astro";
 
 <script>
 import { encodeQR } from "qr";
-import { QRCanvas, frontalCamera, frameLoop } from "qr/dom.js";
+import { QRCanvas, rearCamera, frameLoop } from "qr/dom.js";
 
 const PROTOCOL_PREFIX = "QRDROP1:";
 const CHUNK_SIZE = 300;
@@ -474,7 +474,7 @@ async function startReceiver() {
     return;
   }
 
-  camera = await frontalCamera(video);
+  camera = await rearCamera(video);
   populateCameraSelect(cameraSelect, cameraSelectWrap, camera);
   const qr = new QRCanvas(
     {
@@ -728,7 +728,7 @@ async function startF2FReceiver(): Promise<void> {
     return;
   }
 
-  f2fCamera = await frontalCamera(f2fVideo);
+  f2fCamera = await rearCamera(f2fVideo);
   populateCameraSelect(f2fCameraSelect, f2fCameraSelectWrap, f2fCamera);
   f2fStopRecv.disabled = false;
   const qr = new QRCanvas(
