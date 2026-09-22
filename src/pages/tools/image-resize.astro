@@ -16,6 +16,8 @@ import A from "../../components/A.astro";
         <option value="png">PNG</option>
       </select>
       <button id="download" class="action-control" disabled>ダウンロード</button>
+      <span id="original-size" aria-live="polite"></span>
+      <span id="file-size" aria-live="polite"></span>
     </div>
     <div class="controls">
       <label>
@@ -47,12 +49,21 @@ const speed = document.getElementById("speed") as HTMLInputElement;
 const qualityValue = document.getElementById("quality-value") as HTMLOutputElement;
 const speedValue = document.getElementById("speed-value") as HTMLOutputElement;
 const status = document.getElementById("status") as HTMLParagraphElement;
+const originalSize = document.getElementById("original-size") as HTMLSpanElement;
+const fileSize = document.getElementById("file-size") as HTMLSpanElement;
 
 let selectedFile: File | null = null;
 let optimizedBlob: Blob | null = null;
 let optimizedUrl = "";
 let originalUrl = "";
 let requestId = 0;
+let optimizeTimer: ReturnType<typeof setTimeout> | undefined;
+
+function formatFileSize(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 const mimeTypes: Record<string, string> = {
   avif: "image/avif",
@@ -81,6 +92,7 @@ async function optimize() {
     optimizedUrl = URL.createObjectURL(optimizedBlob);
     optimized.src = optimizedUrl;
     optimized.style.display = "block";
+    fileSize.textContent = `optimized: ${formatFileSize(optimizedBlob.size)}`;
     status.textContent = "変換完了";
   } catch {
     if (currentRequest === requestId) status.textContent = "画像を変換できませんでした";
@@ -89,9 +101,15 @@ async function optimize() {
   }
 }
 
+function scheduleOptimize() {
+  if (optimizeTimer) clearTimeout(optimizeTimer);
+  optimizeTimer = setTimeout(() => void optimize(), 250);
+}
+
 img.onchange = async () => {
   if (!img.files || img.files.length === 0) return;
   selectedFile = img.files[0];
+  originalSize.textContent = `origin: ${formatFileSize(selectedFile.size)}`;
   if (originalUrl) URL.revokeObjectURL(originalUrl);
   originalUrl = URL.createObjectURL(selectedFile);
   original.src = originalUrl;
@@ -101,12 +119,12 @@ img.onchange = async () => {
 
 quality.oninput = () => {
   qualityValue.value = quality.value;
-  void optimize();
+  scheduleOptimize();
 };
 
 speed.oninput = () => {
   speedValue.value = speed.value;
-  void optimize();
+  scheduleOptimize();
 };
 
 format.onchange = () => void optimize();
@@ -127,6 +145,7 @@ button.onclick = () => {
   .action-control { box-sizing: border-box; padding: 0.5rem; border: 0; border-radius: 4px; background-color: #007BFF; color: white; font: inherit; cursor: pointer; }
   select.action-control { appearance: auto; }
   .action-control:disabled { cursor: not-allowed; opacity: 0.5; }
+  #original-size, #file-size { white-space: nowrap; }
   .controls { display: flex; gap: 1.5rem; margin: 1rem 0; }
   .controls label { display: grid; flex: 1; gap: 0.25rem; }
   .controls output { float: right; }
