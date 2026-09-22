@@ -26,13 +26,13 @@ import A from "../../components/A.astro";
           <div id="toolbar">
             <div class="toolbar-group">
               <label>フォントサイズ</label>
-              <input type="range" id="fontSizeSlider" min="10" max="40" value="20" />
-              <span id="fontSizeLabel">20px</span>
+              <input type="range" id="fontSizeSlider" min="10" max="40" value="30" />
+              <span id="fontSizeLabel">30px</span>
             </div>
             <div class="toolbar-group">
               <label>高さ</label>
-              <input type="range" id="heightSlider" min="100" max="800" value="400" />
-              <span id="heightLabel">400px</span>
+              <input type="range" id="heightSlider" min="100" max="800" value="800" />
+              <span id="heightLabel">800px</span>
             </div>
           </div>
           <div id="searchBar">
@@ -64,7 +64,6 @@ const fontSizeLabel = document.getElementById("fontSizeLabel")!
 const heightSlider = document.getElementById("heightSlider") as HTMLInputElement
 const heightLabel = document.getElementById("heightLabel")!
 
-const BANK_COUNT = 10
 const BANK_PREFIX = "memo_bank_"
 const CURRENT_BANK_KEY = "memo_currentBank"
 const FONT_SIZE_KEY = "memo_fontSize"
@@ -254,6 +253,8 @@ document.querySelectorAll(".bank-btn").forEach((btn) => {
 window.onload = () => {
   const savedBank = Number(localStorage.getItem(CURRENT_BANK_KEY)) || 0
   loadBank(savedBank)
+  applyFontSize(Number(localStorage.getItem(FONT_SIZE_KEY) || "30"))
+  applyHeight(Number(localStorage.getItem(HEIGHT_KEY) || "800"))
 }
 </script>
 
@@ -307,7 +308,7 @@ window.onload = () => {
       align-items: center;
     }
     #textareaWrapper {
-      background-color:white;
+      background-color:#222233;
       position: relative;
       overflow: hidden;
     }
@@ -324,6 +325,7 @@ window.onload = () => {
       overflow-wrap: break-word;
     }
     #textarea {
+      color:white;
       position: relative;
       z-index: 2;
       caret-color: auto;

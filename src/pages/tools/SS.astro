@@ -83,7 +83,7 @@ import A from "../../components/A.astro";
     try {
       // getDisplayMedia() はユーザー操作から呼び出す必要があります。
       stream = await navigator.mediaDevices.getDisplayMedia({
-        video: { cursor: "always" },
+        video: { "cursor": "always" },
         audio: false,
       });
 
