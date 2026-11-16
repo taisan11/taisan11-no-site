@@ -68,7 +68,7 @@ import A from "../../components/A.astro";
             <h4>受信（相手のカメラ）</h4>
             <button id="f2f-recv-btn" type="button">受信を開始</button>
             <button id="f2f-stop-recv" type="button" disabled>停止</button>
-            <div class="camera-wrap">
+            <div class="camera-wrap f2f-camera-preview">
               <video id="f2f-video" playsinline autoplay muted></video>
               <canvas id="f2f-overlay"></canvas>
             </div>
@@ -869,7 +869,9 @@ clearF2FDownloadLink();
 </script>
 
 <style is:global>
-  .nue {}
+  .nue [hidden] {
+    display: none !important;
+  }
   .c {
     text-align: center;
   }
@@ -986,6 +988,13 @@ clearF2FDownloadLink();
   #f2f-overlay {
     position: absolute;
     inset: 0;
+    pointer-events: none;
+  }
+  .f2f-camera-preview::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgb(128 128 128 / 50%);
     pointer-events: none;
   }
   @media (orientation: landscape) {

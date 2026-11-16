@@ -11,46 +11,8 @@ import { satteri, satteriHeadingIdsPlugin } from '@astrojs/markdown-satteri';
 import { remarkEmbed, youTubeTransformer, googleSlidesTransformer, oEmbedTransformer, type RemarkEmbedOptions } from "./src/lib/satteri-plugins.ts";
 import { satteriRemarkBreaks } from "./src/lib/satteri-plugins.ts";
 //other
-import type {AstroIntegration} from "astro"
 import {getLastCommit} from "git-last-commit"
 import type {Commit} from "git-last-commit"
-import fs from "node:fs";
-import path from "node:path";
-
-function getDirectorySize(dirPath:string) {
-  let totalSize = 0;
-  function calculateSize(directory:string) {
-    try {
-      const files = fs.readdirSync(directory);
-      for (const file of files) {
-        const filePath = path.join(directory, file);
-        const stats = fs.statSync(filePath);
-      if (stats.isDirectory()) {
-        calculateSize(filePath);
-      } else {
-        totalSize += stats.size;
-      }
-    }
-    } catch (error) {
-      console.error(`Error reading directory: ${directory}`, error);
-    }
-  }
-  calculateSize(dirPath);
-  return totalSize;
-}
-
-function buildSizeLogger():AstroIntegration {
-    return {
-        name: "build-size-logger",
-        hooks: {
-            "astro:build:done": async ({ dir }) => {
-                const size = getDirectorySize(new URL(dir.href).pathname);
-                console.log(`\n📦 Build Size: ${size / 1024 / 1024} MB\n${size} Bite\n`);
-            },
-        },
-    };
-}
-
 const lastCommit = await new Promise<Commit>((resolve, reject) => {
   getLastCommit((err: Error | undefined, commit) => {
       if (err) reject(err)
@@ -65,8 +27,7 @@ const lastCommit = await new Promise<Commit>((resolve, reject) => {
 export default defineConfig({
   site:"https://taisan11.dev",
   integrations:[sitemap({filter: (page) => !page.includes("/kakusi/") && !page.includes("/cdn-cgi/")}), playformCompress(), aaa(), robotsTxt({policy:[{userAgent:"*",disallow:["/kakusi/*","/cdn-cgi/*"]}],sitemap:"https://taisan11.dev/sitemap-index.xml"}),
-  // buildSizeLogger()
-  , mdx()],
+  mdx()],
 
   output:"static",
 

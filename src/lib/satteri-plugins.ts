@@ -1,5 +1,5 @@
 import { defineMdastPlugin } from "satteri"
-import type { Link, Paragraph } from "mdast"
+import type { Paragraph } from "mdast"
 import { unfurl } from "unfurl.js"
 
 export type HProperties = Record<string, string>

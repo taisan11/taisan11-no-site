@@ -107,9 +107,7 @@ export const GET: APIRoute = async ({
     );
 };
 
-export const POST: APIRoute = async ({
-    request,
-}) => {
+export const POST: APIRoute = async () => {
     const kv: KVNamespace = env.visitor_counter;
 
     let count = Number((await kv.get("count")) ?? "0");
