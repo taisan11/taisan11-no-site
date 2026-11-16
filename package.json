@@ -10,12 +10,12 @@
     "type-gen": "wrangler types"
   },
   "dependencies": {
-    "@astrojs/cloudflare": "14.4.2",
-    "@astrojs/mdx": "8.1.1",
-    "@astrojs/sitemap": "3.7.4",
+    "@astrojs/cloudflare": "14.4.8",
+    "@astrojs/mdx": "8.1.6",
+    "@astrojs/sitemap": "3.7.5",
     "@playform/compress": "^0.2.5",
     "@taisan11/vite-plugin-budoux-build": "npm:@jsr/taisan11__vite-plugin-budoux-build@^1.0.1",
-    "astro": "7.4.2",
+    "astro": "7.4.12",
     "astro-robots-txt": "^1.0.0",
     "qr": "^0.7.2",
     "sharp": "^0.35.5",
@@ -24,8 +24,8 @@
   },
   "devDependencies": {
     "@ascorbic/feed-loader": "^2.0.1",
-    "@astrojs/markdown-satteri": "0.4.5",
+    "@astrojs/markdown-satteri": "0.4.10",
     "git-last-commit": "^1.0.1",
-    "satteri": "^0.10.5"
+    "satteri": "^0.11.7"
   }
 }

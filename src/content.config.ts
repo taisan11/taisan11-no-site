@@ -15,10 +15,26 @@ const blog = defineCollection({
   }),
 });
 
+const zennFeedLoader = feedLoader({
+  url: "https://zenn.dev/taisan11/feed",
+});
+
 const zenn = defineCollection({
-  loader: feedLoader({
-    url: "https://zenn.dev/taisan11/feed",
-  }),
+  loader: {
+    ...zennFeedLoader,
+    async load(context) {
+      const hasCache = context.store.values().length > 0
+        || context.meta.get("feed-cached") === "true";
+
+      if (import.meta.env.DEV && hasCache) {
+        context.logger.info("Using cached Zenn feed");
+        return;
+      }
+
+      await zennFeedLoader.load(context);
+      context.meta.set("feed-cached", "true");
+    },
+  },
 });
 
 export const collections = { blog,zenn };
