@@ -97,7 +97,7 @@ import { QRCanvas, rearCamera, frameLoop } from "qr/dom.js";
 // QR byte mode: 13-byte header + up to 2000 raw payload bytes (ECC low).
 const MAGIC = new Uint8Array([0x51, 0x44, 0x52, 0x32]); // QDR2
 const HEADER_SIZE = 13;
-const CHUNK_SIZE = 2000;
+const CHUNK_SIZE = 600;
 const utf8Encoder = new TextEncoder();
 const utf8Decoder = new TextDecoder("utf-8", { fatal: true });
 
