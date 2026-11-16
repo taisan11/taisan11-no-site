@@ -1,0 +1,620 @@
+---
+import Layout from "../../layouts/layout.astro";
+import A from "../../components/A.astro";
+---
+
+<Layout title="QrDrop 手動モード by taisan11">
+  <div class="nue">
+    <A href="/tools">← 戻る</A><br />
+    <div class="c">
+      <h2>QrDrop — 手動モード</h2>
+      <p>ファイルをQRコードで送受信します。</p>
+      <p>送信側は手動で次のQRへ進めます。受信側で<span class="green">🟢</span>が出たら、次のQRを表示してください。</p>
+    </div>
+
+    <div class="yoko" id="manual-mode">
+      <section class="panel">
+        <h3>送信</h3>
+        <input type="file" name="file" id="file" />
+        <button id="sosin" type="button">送信を準備</button>
+        <button id="next" type="button" disabled>次のQRへ</button>
+        <button id="reset" type="button" disabled>最初から</button>
+        <p id="sender-info">ファイルを選んでください。</p>
+        <div id="qr" aria-live="polite"></div>
+      </section>
+
+      <section class="panel">
+        <h3>受信</h3>
+        <button id="jyusin" type="button">受信を開始</button>
+        <div class="camera-wrap">
+          <video id="video" playsinline autoplay muted></video>
+          <canvas id="overlay"></canvas>
+        </div>
+        <div class="camera-select-wrap" id="camera-select-wrap" hidden>
+          <label>カメラ: <select id="camera-select"></select></label>
+        </div>
+        <div class="status">
+          <div id="emoji">📷</div>
+          <p id="receiver-info">開始QRを読み取ってください。</p>
+          <p id="receiver-meta"></p>
+        </div>
+        <a id="download" hidden>受信ファイルを保存</a>
+      </section>
+    </div>
+  </div>
+</Layout>
+
+<script>
+import { encodeQR } from "qr";
+import { QRCanvas, rearCamera, frameLoop } from "qr/dom.js";
+
+// QR byte mode: 13-byte header + up to 2000 raw payload bytes (ECC low).
+const MAGIC = new Uint8Array([0x51, 0x44, 0x52, 0x32]); // QDR2
+const HEADER_SIZE = 13;
+const CHUNK_SIZE = 600;
+const utf8Encoder = new TextEncoder();
+const utf8Decoder = new TextDecoder("utf-8", { fatal: true });
+
+// === Types ===
+interface TransferFile {
+  name: string;
+  type: string;
+  bytes: Uint8Array;
+}
+
+type Packet = { id: number; seq: number } & (
+  | { t: "start"; name: string; type: string; size: number; originalSize: number; chunkSize: number; chunkCount: number }
+  | { t: "data"; i: number; data: Uint8Array }
+  | { t: "end" }
+  | { t: "ack" }
+);
+
+interface SenderState {
+  file: TransferFile;
+  packets: Packet[];
+  dataCount: number;
+  index: number;
+  completed: boolean;
+}
+
+interface ReceiverState {
+  id: number;
+  name: string;
+  type: string;
+  size: number;
+  originalSize: number;
+  chunkSize: number;
+  chunkCount: number;
+  chunks: (Uint8Array | null)[];
+  received: number;
+  receivedCount: number;
+  finishing: boolean;
+  completed: boolean;
+}
+
+// === Utilities ===
+// qr's hooks bridge raw QR byte segments to its string-based public API.
+// Do not use TextDecoder("latin1"): it remaps bytes 0x80..0x9f.
+function binaryText(bytes: Uint8Array): string {
+  return String.fromCharCode(...bytes);
+}
+
+async function compressBytes(bytes: Uint8Array): Promise<Uint8Array> {
+  const stream = new ReadableStream({ start: (c) => { c.enqueue(bytes); c.close(); } });
+  const compressed = stream.pipeThrough(new CompressionStream("gzip"));
+  const reader = compressed.getReader();
+  const chunks: Uint8Array[] = [];
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) chunks.push(value);
+  }
+  const total = chunks.reduce((s, c) => s + c.length, 0);
+  const result = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return result;
+}
+
+async function decompressBytes(bytes: Uint8Array): Promise<Uint8Array> {
+  const stream = new ReadableStream({ start: (c) => { c.enqueue(bytes); c.close(); } });
+  const decompressed = stream.pipeThrough(new DecompressionStream("gzip"));
+  const reader = decompressed.getReader();
+  const chunks: Uint8Array[] = [];
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) chunks.push(value);
+  }
+  const total = chunks.reduce((s, c) => s + c.length, 0);
+  const result = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return result;
+}
+
+function makePacket(packet: Packet): Uint8Array {
+  const kinds = { start: 0, data: 1, end: 2, ack: 3 } as const;
+  const name = packet.t === "start" ? utf8Encoder.encode(packet.name) : new Uint8Array();
+  const type = packet.t === "start" ? utf8Encoder.encode(packet.type) : new Uint8Array();
+  const payloadSize = packet.t === "start" ? 18 + name.length + type.length
+    : packet.t === "data" ? packet.data.length : 0;
+  if (name.length > 65535 || type.length > 65535 || HEADER_SIZE + payloadSize > 2953) {
+    throw new Error("QRに収まらないメタデータです。ファイル名を短くしてください。");
+  }
+  const bytes = new Uint8Array(HEADER_SIZE + payloadSize);
+  const view = new DataView(bytes.buffer);
+  bytes.set(MAGIC);
+  view.setUint8(4, kinds[packet.t]);
+  view.setUint32(5, packet.id);
+  view.setUint32(9, packet.seq);
+  if (packet.t === "start") {
+    view.setUint32(13, packet.size);
+    view.setUint32(17, packet.originalSize);
+    view.setUint16(21, packet.chunkSize);
+    view.setUint32(23, packet.chunkCount);
+    view.setUint16(27, name.length);
+    view.setUint16(29, type.length);
+    bytes.set(name, 31);
+    bytes.set(type, 31 + name.length);
+  } else if (packet.t === "data") {
+    bytes.set(packet.data, HEADER_SIZE);
+  }
+  return bytes;
+}
+
+function parsePacket(text: string): Packet | null {
+  if (text.length < HEADER_SIZE || text.length > 2953) return null;
+  const bytes = Uint8Array.from(text, (char) => char.charCodeAt(0));
+  if (!MAGIC.every((byte, i) => bytes[i] === byte)) return null;
+  const view = new DataView(bytes.buffer);
+  const kind = view.getUint8(4);
+  const id = view.getUint32(5);
+  const seq = view.getUint32(9);
+  if (kind === 0) {
+    if (seq !== 0 || bytes.length < 31) return null;
+    const size = view.getUint32(13);
+    const originalSize = view.getUint32(17);
+    const chunkSize = view.getUint16(21);
+    const chunkCount = view.getUint32(23);
+    const nameLength = view.getUint16(27);
+    const typeLength = view.getUint16(29);
+    if (chunkSize !== CHUNK_SIZE || chunkCount !== Math.ceil(size / chunkSize)
+      || bytes.length !== 31 + nameLength + typeLength) return null;
+    try {
+      return {
+        t: "start", id, seq, size, originalSize, chunkSize, chunkCount,
+        name: utf8Decoder.decode(bytes.subarray(31, 31 + nameLength)),
+        type: utf8Decoder.decode(bytes.subarray(31 + nameLength)),
+      };
+    } catch { return null; }
+  }
+  if (kind === 1 && seq > 0 && bytes.length > HEADER_SIZE
+    && bytes.length <= HEADER_SIZE + CHUNK_SIZE) {
+    return { t: "data", id, seq, i: seq - 1, data: bytes.subarray(HEADER_SIZE) };
+  }
+  if (bytes.length !== HEADER_SIZE) return null;
+  if (kind === 2 && seq > 0) return { t: "end", id, seq };
+  if (kind === 3) return { t: "ack", id, seq };
+  return null;
+}
+
+function renderQR(packet: Packet, target: HTMLDivElement): void {
+  const bytes = makePacket(packet);
+  target.innerHTML = encodeQR("", "svg", {
+    ecc: "low", encoding: "byte", textEncoder: () => bytes,
+  });
+}
+
+function getChunks(bytes: Uint8Array): Uint8Array[] {
+  const chunks: Uint8Array[] = [];
+  for (let i = 0; i < bytes.length; i += CHUNK_SIZE) chunks.push(bytes.subarray(i, i + CHUNK_SIZE));
+  return chunks;
+}
+
+async function prepareSender(file: TransferFile): Promise<SenderState> {
+  const compressed = await compressBytes(file.bytes);
+  if (file.bytes.length > 0xffffffff || compressed.length > 0xffffffff) {
+    throw new Error("ファイルが大きすぎます。");
+  }
+  const chunks = getChunks(compressed);
+  const id = crypto.getRandomValues(new Uint32Array(1))[0];
+  const packets: Packet[] = [
+    {
+      t: "start", id, seq: 0, name: file.name,
+      type: file.type || "application/octet-stream",
+      originalSize: file.bytes.length, size: compressed.length,
+      chunkSize: CHUNK_SIZE, chunkCount: chunks.length,
+    },
+    ...chunks.map((data, i): Packet => ({ t: "data", id, seq: i + 1, i, data })),
+    { t: "end", id, seq: chunks.length + 1 },
+  ];
+  makePacket(packets[0]); // Validate metadata before starting the transfer.
+  return { file, packets, dataCount: chunks.length, index: 0, completed: false };
+}
+
+function createReceiver(packet: Extract<Packet, { t: "start" }>): ReceiverState {
+  return {
+    ...packet,
+    chunks: Array.from({ length: packet.chunkCount }, () => null),
+    received: 0, receivedCount: 0, finishing: false, completed: false,
+  };
+}
+
+function acceptChunk(state: ReceiverState, packet: Extract<Packet, { t: "data" }>): boolean {
+  if (packet.i >= state.chunkCount
+    || packet.data.length !== Math.min(state.chunkSize, state.size - packet.i * state.chunkSize)) return false;
+  if (!state.chunks[packet.i]) {
+    state.chunks[packet.i] = packet.data;
+    state.received += packet.data.length;
+    state.receivedCount += 1;
+  }
+  return true;
+}
+
+function joinChunks(state: ReceiverState): Uint8Array {
+  const bytes = new Uint8Array(state.size);
+  let offset = 0;
+  for (const chunk of state.chunks) {
+    bytes.set(chunk!, offset);
+    offset += chunk!.length;
+  }
+  return bytes;
+}
+
+async function finishTransfer(
+  state: ReceiverState,
+  link: HTMLAnchorElement,
+  setStatus: (symbol: string, message: string, meta?: string) => void,
+  isCurrent: () => boolean,
+): Promise<boolean> {
+  if (state.completed) return true;
+  if (state.finishing) return false;
+  if (state.receivedCount !== state.chunkCount || state.received !== state.size) {
+    setStatus("⚠️", "まだ全部そろっていません。", `不足: ${state.chunkCount - state.receivedCount} 個`);
+    return false;
+  }
+  state.finishing = true;
+  setStatus("🔄", "解凍中...", "");
+  try {
+    const decompressed = await decompressBytes(joinChunks(state));
+    if (!isCurrent()) return false;
+    if (decompressed.length !== state.originalSize) throw new Error("ファイルサイズが一致しません。");
+    const blob = new Blob([new Uint8Array(decompressed)], { type: state.type || "application/octet-stream" });
+    if (link.href.startsWith("blob:")) URL.revokeObjectURL(link.href);
+    link.href = URL.createObjectURL(blob);
+    link.download = state.name || "qrdrop.bin";
+    link.hidden = false;
+    link.textContent = `${link.download} を保存`;
+    state.completed = true;
+    link.click();
+    setStatus("✅", "受信が完了しました。",
+      `圧縮サイズ: ${state.size} byte (元: ${state.originalSize} byte) / チャンク数: ${state.chunkCount}`);
+    return true;
+  } catch (error) {
+    if (isCurrent()) setStatus("⚠️", "解凍エラーが発生しました。", "");
+    console.error(error);
+    return false;
+  } finally {
+    state.finishing = false;
+  }
+}
+
+async function populateCameraSelect(
+  select: HTMLSelectElement,
+  wrap: HTMLElement,
+  camera: any,
+): Promise<void> {
+  try {
+    const devices = await camera.listDevices();
+    select.innerHTML = devices
+      .map((d: any) => `<option value="${d.deviceId}">${d.label}</option>`)
+      .join("");
+    if (devices.length > 1) wrap.hidden = false;
+    select.onchange = () => {
+      camera.setDevice(select.value).catch((err: any) => {
+        console.error("カメラ切替エラー:", err);
+      });
+    };
+  } catch (err) {
+    console.error("カメラ一覧取得エラー:", err);
+  }
+}
+
+const fileInput = document.getElementById("file") as HTMLInputElement;
+const sendButton = document.getElementById("sosin") as HTMLButtonElement;
+const nextButton = document.getElementById("next") as HTMLButtonElement;
+const resetButton = document.getElementById("reset") as HTMLButtonElement;
+const qrBox = document.getElementById("qr") as HTMLDivElement;
+const senderInfo = document.getElementById("sender-info") as HTMLParagraphElement;
+const receiveButton = document.getElementById("jyusin") as HTMLButtonElement;
+const video = document.getElementById("video") as HTMLVideoElement;
+const overlay = document.getElementById("overlay") as HTMLCanvasElement;
+const emoji = document.getElementById("emoji") as HTMLDivElement;
+const receiverInfo = document.getElementById("receiver-info") as HTMLParagraphElement;
+const receiverMeta = document.getElementById("receiver-meta") as HTMLParagraphElement;
+const downloadLink = document.getElementById("download") as HTMLAnchorElement;
+
+const cameraSelectWrap = document.getElementById("camera-select-wrap") as HTMLDivElement;
+const cameraSelect = document.getElementById("camera-select") as HTMLSelectElement;
+
+let senderState: SenderState | null = null;
+let receiverState: ReceiverState | null = null;
+let camera: Awaited<ReturnType<typeof rearCamera>> | null = null;
+let stopScan: (() => void) | null = null;
+let lastAcceptedScan = "";
+
+function updateSenderView() {
+  if (!senderState) {
+    qrBox.innerHTML = "";
+    senderInfo.textContent = "ファイルを選んでください。";
+    nextButton.disabled = true;
+    resetButton.disabled = true;
+    return;
+  }
+
+  const { packets, index, file } = senderState;
+  const packet = packets[index];
+  renderQR(packet, qrBox);
+
+  if (packet.t === "start") {
+    senderInfo.textContent = `開始QRです。受信側で🟢が出たら「次のQRへ」を押してください。 (${file.name})`;
+  } else if (packet.t === "data") {
+    senderInfo.textContent = `データ ${packet.i + 1} / ${senderState.dataCount} を表示中です。受信側で🟢が出たら次へ進めます。`;
+  } else {
+    senderInfo.textContent = "終了QRです。これが最後です。";
+  }
+
+  nextButton.disabled = index >= packets.length - 1;
+  resetButton.disabled = false;
+}
+
+async function startSenderWithCompression(file: TransferFile) {
+  senderInfo.textContent = "圧縮中...";
+  sendButton.disabled = true;
+  try {
+    senderState = await prepareSender(file);
+    updateSenderView();
+  } catch (error) {
+    senderInfo.textContent = error instanceof Error ? error.message : "送信準備エラーが発生しました。";
+    console.error(error);
+  } finally {
+    sendButton.disabled = false;
+  }
+}
+
+function nextSenderPacket() {
+  if (!senderState || senderState.index >= senderState.packets.length - 1) {
+    return;
+  }
+
+  senderState.index += 1;
+  updateSenderView();
+}
+
+function resetSender() {
+  senderState = null;
+  fileInput.value = "";
+  updateSenderView();
+}
+
+function setReceiverStatus(symbol: string, message: string, meta = "") {
+  emoji.textContent = symbol;
+  receiverInfo.textContent = message;
+  receiverMeta.textContent = meta;
+}
+
+function clearDownloadLink() {
+  downloadLink.hidden = true;
+  downloadLink.removeAttribute("href");
+  downloadLink.removeAttribute("download");
+  downloadLink.textContent = "受信ファイルを保存";
+}
+
+async function finishReceiver(): Promise<boolean> {
+  const state = receiverState;
+  return state ? finishTransfer(state, downloadLink, setReceiverStatus, () => receiverState === state) : false;
+}
+
+async function handlePacket(packet: Packet): Promise<void> {
+  if (packet.t === "ack") return;
+  if (packet.t === "start") {
+    if (receiverState?.id === packet.id) return;
+    receiverState = createReceiver(packet);
+    clearDownloadLink();
+    setReceiverStatus("🟢", "開始QRを受信しました。次のQRを表示してください。", `全体: ${packet.size} byte / ${packet.chunkCount} 枚`);
+    return;
+  }
+  if (!receiverState || packet.id !== receiverState.id) {
+    setReceiverStatus("⚠️", "先に開始QRを読み取ってください。", "");
+    return;
+  }
+  if (packet.t === "data") {
+    if (!acceptChunk(receiverState, packet)) return;
+    const done = receiverState.receivedCount;
+    setReceiverStatus("🟢", "受信しました。次のQRを表示してください。",
+      `進捗: ${done}/${receiverState.chunkCount} (${Math.round((done / receiverState.chunkCount) * 100)}%)`);
+  } else if (packet.seq === receiverState.chunkCount + 1) {
+    await finishReceiver();
+  }
+}
+
+async function startReceiver() {
+  if (stopScan) return;
+  const activeCamera = await rearCamera(video);
+  camera = activeCamera;
+  populateCameraSelect(cameraSelect, cameraSelectWrap, camera);
+  const qr = new QRCanvas({ overlay }, {
+    cropToSquare: true, overlayTimeout: 500, textDecoder: binaryText,
+  });
+  let reading = false;
+  stopScan = frameLoop(async () => {
+    if (reading) return;
+    reading = true;
+    try {
+      const result = await activeCamera.readFrame(qr);
+      if (camera !== activeCamera || typeof result !== "string" || result === lastAcceptedScan) return;
+      const packet = parsePacket(result);
+      if (!packet) return;
+      await handlePacket(packet);
+      lastAcceptedScan = result;
+    } catch (error) {
+      console.error("QR読み取りエラー:", error);
+    } finally {
+      reading = false;
+    }
+  }, video);
+  setReceiverStatus("📷", "読み取り中です。開始QRを映してください。", "");
+}
+
+sendButton.addEventListener("click", async () => {
+  const files = fileInput.files;
+  if (!files || !files.length) {
+    senderInfo.textContent = "ファイルが無いよう...";
+    return;
+  }
+
+  const file = files.item(0);
+  if (!file) {
+    senderInfo.textContent = "ファイルが読めません。";
+    return;
+  }
+
+  await startSenderWithCompression({
+    name: file.name,
+    type: file.type,
+    bytes: new Uint8Array(await file.arrayBuffer()),
+  });
+});
+
+nextButton.addEventListener("click", () => {
+  nextSenderPacket();
+});
+
+resetButton.addEventListener("click", () => {
+  resetSender();
+});
+
+receiveButton.addEventListener("click", async () => {
+  try {
+    await startReceiver();
+    receiveButton.disabled = true;
+  } catch (error) {
+    setReceiverStatus("⚠️", "カメラを開始できませんでした。権限を確認してください。", "");
+    console.error(error);
+  }
+});
+
+function cleanupManualMode(): void {
+  if (stopScan) {
+    stopScan();
+    stopScan = null;
+  }
+  if (camera) {
+    camera.stop();
+    camera = null;
+  }
+  cameraSelectWrap.hidden = true;
+  senderState = null;
+  receiverState = null;
+  lastAcceptedScan = "";
+  fileInput.value = "";
+  qrBox.innerHTML = "";
+  senderInfo.textContent = "ファイルを選んでください。";
+  nextButton.disabled = true;
+  resetButton.disabled = true;
+  clearDownloadLink();
+  setReceiverStatus("📷", "開始QRを読み取ってください。", "");
+  receiveButton.disabled = false;
+}
+
+updateSenderView();
+clearDownloadLink();
+window.addEventListener("pagehide", cleanupManualMode);
+</script>
+
+<style is:global>
+  .nue [hidden] {
+    display: none !important;
+  }
+  .c {
+    text-align: center;
+  }
+  .camera-wrap {
+    position: relative;
+    width: 100%;
+    max-width: 420px;
+    margin: 0.75rem auto 0;
+    background: #111;
+  }
+  .camera-select-wrap {
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+  }
+  .camera-select-wrap select {
+    max-width: 100%;
+  }
+  .status {
+    margin-top: 0.75rem;
+  }
+  .green {
+    color: #44d25f;
+  }
+  .yoko {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .panel {
+    flex: 1 1 480px;
+    min-width: 0;
+    text-align: center;
+  }
+  #qr {
+    min-height: min(640px, 80vw);
+    background-color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: auto;
+    width: 100%;
+    max-width: 640px;
+    margin: 0.75rem auto 0;
+  }
+  #video,
+  #overlay {
+    width: 100%;
+    display: block;
+  }
+  #overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  #emoji {
+    font-size: 3rem;
+    line-height: 1;
+  }
+  #download {
+    display: inline-block;
+    margin-top: 0.75rem;
+  }
+  #qr svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  @media (orientation: landscape) {
+    .nue {
+      width: 90vw;
+      margin: 0 auto;
+    }
+  }
+</style>
