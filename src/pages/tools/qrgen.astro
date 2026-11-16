@@ -3,90 +3,142 @@ import Layout from "../../layouts/layout.astro";
 import A from "../../components/A.astro";
 ---
 
-<Layout title="taisan11のサイト">
-    <div class="nue">
-      <A href="/tools">← 戻る</A><br/>
-      <div class="c">
-          <h2>QRCode生成機</h2>
-          <label class="text-input">
-              内容
-              <input type="text" placeholder="URLや文字を入力" id="text" />
-          </label>
+<Layout title="QRコード生成 | taisan11のサイト">
+  <div class="qr-generator">
+    <A href="/tools">← ツール一覧へ</A>
+    <header class="page-heading">
+      <h2>QRコード生成</h2>
+      <p>色々デザイン可能なQRコード生成器です。</p>
+    </header>
 
-          <div class="qr-controls">
-              <label>
-                  通常ドットの形
-                  <select name="pattern" id="pattern">
-                      <option value="sikaku">四角</option>
-                      <option value="maru">丸</option>
-                  </select>
-              </label>
-              <label>
-                  パターンの形（角3か所・アライメント）
-                  <select id="finder-pattern">
-                      <option value="sikaku">四角</option>
-                      <option value="maru">丸</option>
-                  </select>
-              </label>
-              <label>
-                  誤り訂正
-                  <select id="ecc">
-                      <option value="low">低 (7%)</option>
-                      <option value="medium" selected>中 (15%)</option>
-                      <option value="quartile">高 (25%)</option>
-                      <option value="high">最高 (30%)</option>
-                  </select>
-              </label>
-              <label class="range-label">
-                  <span>画像サイズ <output id="size-value">1024</output>px</span>
-                  <input type="range" id="size" min="128" max="2048" step="16" value="1024" />
-              </label>
-              <label>
-                  <span>画像サイズを直接入力</span>
-                  <input type="number" id="size-number" min="128" max="2048" step="16" value="1024" />
-              </label>
-              <label class="range-label">
-                  <span>余白 <output id="border-value">4</output>セル</span>
-                  <input type="range" id="border" min="1" max="10" step="1" value="4" />
-              </label>
-              <label class="range-label">
-                  <span>通常コードのセル間隔 <output id="code-gap-value">0</output>%</span>
-                  <input type="range" id="code-gap" min="0" max="30" step="1" value="0" />
-              </label>
-              <label class="range-label">
-                  <span>通常コードの丸み <output id="code-roundness-value">100</output>%</span>
-                  <input type="range" id="code-roundness" min="0" max="100" step="1" value="100" />
-              </label>
-              <label class="range-label">
-                  <span>パターンのセル間隔 <output id="pattern-gap-value">0</output>%</span>
-                  <input type="range" id="pattern-gap" min="0" max="30" step="1" value="0" />
-              </label>
-              <label class="range-label">
-                  <span>パターンの丸み <output id="pattern-roundness-value">100</output>%</span>
-                  <input type="range" id="pattern-roundness" min="0" max="100" step="1" value="100" />
-              </label>
-              <div class="color-inputs">
-                  <label>背景色 <input type="color" id="background" value="#ffffff" /></label>
-                  <label>
-                      通常コードの色
-                      <select id="code-color-mode">
-                          <option value="auto" selected>背景に合わせて自動</option>
-                          <option value="custom">指定色</option>
-                      </select>
-                      <input type="color" id="code-color" value="#000000" disabled />
-                  </label>
-                  <label class="file-input">
-                      背景画像
-                      <input type="file" id="background-image" accept="image/*" />
-                  </label>
-                  <button type="button" id="clear-background-image">背景画像を解除</button>
-              </div>
+    <div class="workspace">
+      <div class="settings">
+        <section class="panel" aria-label="基本設定">
+          <div class="content-input">
+            <label class="field">
+              <input type="text" placeholder="URLや文字を入力" id="text" aria-label="QRコードにする内容" />
+            </label>
+            <button type="button" id="generate">生成</button>
           </div>
+          <div class="field size-field">
+            <label for="size">画像サイズ</label>
+            <div class="size-controls">
+              <input type="range" id="size" min="128" max="2048" step="16" value="1024" aria-label="画像サイズ（スライダー）" />
+              <div class="number-unit">
+                <input type="number" id="size-number" min="128" max="2048" step="16" value="1024" aria-label="画像サイズ（px）" />
+                <span>px</span>
+              </div>
+            </div>
+          </div>
+          <div class="control-grid">
+            <label class="field range-field">
+              <span>余白 <span class="value"><output id="border-value" for="border">4</output>セル</span></span>
+              <input type="range" id="border" min="1" max="10" step="1" value="4" />
+            </label>
+            <label class="field">
+              <span>誤り訂正</span>
+              <select id="ecc" aria-describedby="ecc-hint">
+                <option value="low">低（7%）</option>
+                <option value="medium" selected>中（15%）</option>
+                <option value="quartile">高（25%）</option>
+                <option value="high">最高（30%）</option>
+              </select>
+              <small id="ecc-hint">高いほど、読み取りやすいです。</small>
+            </label>
+          </div>
+        </section>
 
-          <button id="GO">生成・更新</button>
-          <p id="message" role="status" aria-live="polite"></p>
-          <div id="qr"></div>
+        <details class="panel settings-section">
+          <summary>ドットのデザイン</summary>
+          <div class="section-body">
+            <fieldset>
+              <legend>通常のドット</legend>
+              <div class="shape-controls">
+                <label class="field">
+                  <span>形</span>
+                  <select name="pattern" id="pattern">
+                    <option value="sikaku">四角</option>
+                    <option value="maru">丸</option>
+                  </select>
+                </label>
+                <label class="field range-field">
+                  <span>セル間隔 <span class="value"><output id="code-gap-value" for="code-gap">0</output>%</span></span>
+                  <input type="range" id="code-gap" min="0" max="30" step="1" value="0" />
+                </label>
+              </div>
+              <label class="field range-field roundness-field" hidden>
+                <span>丸み <span class="value"><output id="code-roundness-value" for="code-roundness">100</output>%</span></span>
+                <input type="range" id="code-roundness" min="0" max="100" step="1" value="100" />
+              </label>
+              <label class="field">
+                <span>色</span>
+                <select id="code-color-mode">
+                  <option value="auto" selected>背景に合わせて自動</option>
+                  <option value="custom">指定色</option>
+                </select>
+              </label>
+              <label class="field custom-color-field" hidden>
+                <span>指定色</span>
+                <input type="color" id="code-color" value="#000000" disabled />
+              </label>
+            </fieldset>
+            <fieldset>
+              <legend>角3箇所のパターン</legend>
+              <p class="hint">色は固定です。</p>
+              <div class="shape-controls">
+                <label class="field">
+                  <span>形</span>
+                  <select id="finder-pattern">
+                    <option value="sikaku">四角</option>
+                    <option value="maru">丸</option>
+                  </select>
+                </label>
+                <label class="field range-field">
+                  <span>セル間隔 <span class="value"><output id="pattern-gap-value" for="pattern-gap">0</output>%</span></span>
+                  <input type="range" id="pattern-gap" min="0" max="30" step="1" value="0" />
+                </label>
+              </div>
+              <label class="field range-field roundness-field" hidden>
+                <span>丸み <span class="value"><output id="pattern-roundness-value" for="pattern-roundness">100</output>%</span></span>
+                <input type="range" id="pattern-roundness" min="0" max="100" step="1" value="100" />
+              </label>
+            </fieldset>
+          </div>
+        </details>
+
+        <details class="panel settings-section">
+          <summary>背景</summary>
+          <div class="section-body">
+            <label class="field">
+              <span>背景色</span>
+              <input type="color" id="background" value="#ffffff" />
+            </label>
+            <div class="field">
+              <label for="background-image">背景画像（任意）</label>
+              <div class="file-controls">
+                <input type="file" id="background-image" accept="image/*" aria-describedby="background-hint" />
+                <button type="button" id="clear-background-image" disabled>背景画像を解除</button>
+              </div>
+            </div>
+            <p class="hint" id="background-hint">画像は中央で正方形に切り抜かれます。外周と角3箇所のパターン・位置合わせ用パターンの背景は白のままです。</p>
+          </div>
+        </details>
+
       </div>
+
+      <section class="panel preview-panel" aria-labelledby="preview-heading">
+        <div class="preview-heading">
+          <h3 id="preview-heading">プレビュー</h3>
+          <button type="button" id="download" disabled>ダウンロード</button>
+        </div>
+        <div class="preview-stage">
+          <p id="preview-placeholder">内容を入力すると、ここにQRコードを自動で表示します。</p>
+          <div id="qr" hidden></div>
+        </div>
+        <p id="message" role="status" aria-live="polite"></p>
+
+      </section>
+    </div>
   </div>
 </Layout>
 
@@ -94,6 +146,8 @@ import A from "../../components/A.astro";
 import {encodeQR} from "qr"
 
 const img = document.getElementById("qr") as HTMLDivElement
+const previewPlaceholder = document.getElementById("preview-placeholder") as HTMLParagraphElement
+const downloadButton = document.getElementById("download") as HTMLButtonElement
 const textInput = document.getElementById("text") as HTMLInputElement
 const patternInput = document.getElementById("pattern") as unknown as HTMLSelectElement
 const finderPatternInput = document.getElementById("finder-pattern") as unknown as HTMLSelectElement
@@ -113,6 +167,8 @@ const clearBackgroundImageButton = document.getElementById("clear-background-ima
 const message = document.getElementById("message") as HTMLParagraphElement
 let backgroundImage: HTMLImageElement | null = null
 let backgroundImageUrl: string | null = null
+let renderTimer: ReturnType<typeof setTimeout> | undefined
+let isComposing = false
 
 type ErrorCorrection = "low" | "medium" | "quartile" | "high"
 
@@ -330,7 +386,6 @@ function fillQrSafetyBackgrounds(
 }
 
 function updateLabels() {
-  document.getElementById("size-value")!.textContent = sizeInput.value
   document.getElementById("border-value")!.textContent = borderInput.value
   document.getElementById("code-gap-value")!.textContent = codeGapInput.value
   document.getElementById("code-roundness-value")!.textContent = codeRoundnessInput.value
@@ -338,21 +393,44 @@ function updateLabels() {
   document.getElementById("pattern-roundness-value")!.textContent = patternRoundnessInput.value
   codeRoundnessInput.disabled = patternInput.value !== "maru"
   patternRoundnessInput.disabled = finderPatternInput.value !== "maru"
+  codeRoundnessInput.closest<HTMLElement>(".roundness-field")!.hidden = codeRoundnessInput.disabled
+  patternRoundnessInput.closest<HTMLElement>(".roundness-field")!.hidden = patternRoundnessInput.disabled
   codeColorInput.disabled = codeColorModeInput.value === "auto"
+  codeColorInput.closest<HTMLElement>(".custom-color-field")!.hidden = codeColorInput.disabled
 }
 
-function setSize(value: string) {
-  const size = Math.min(2048, Math.max(128, Number(value) || 512))
+function setSize(value: string, syncNumber = true) {
+  const size = Math.min(2048, Math.max(128, Math.round((Number(value) || 1024) / 16) * 16))
   sizeInput.value = String(size)
-  sizeNumberInput.value = String(size)
+  if (syncNumber) sizeNumberInput.value = String(size)
   updateLabels()
 }
 
+function clearPreview() {
+  img.replaceChildren()
+  img.hidden = true
+  previewPlaceholder.hidden = false
+  downloadButton.disabled = true
+}
+
+function scheduleRender() {
+  clearTimeout(renderTimer)
+  downloadButton.disabled = true
+  if (!textInput.value) {
+    renderQR()
+    return
+  }
+  if (isComposing) return
+  message.textContent = "更新中…"
+  renderTimer = setTimeout(renderQR, 180)
+}
+
 function renderQR() {
+  clearTimeout(renderTimer)
   const text = textInput.value
   if (!text) {
-    img.innerHTML = ""
-    message.textContent = "内容を入力してください"
+    clearPreview()
+    message.textContent = ""
     return
   }
 
@@ -409,23 +487,38 @@ function renderQR() {
       }
     }
 
-    img.innerHTML = ""
-    img.appendChild(canvas)
+    img.replaceChildren(canvas)
+    img.hidden = false
+    previewPlaceholder.hidden = true
+    downloadButton.disabled = false
     message.textContent = `${imageSize}×${imageSize}px で生成しました`
   } catch (error) {
-    img.innerHTML = ""
+    clearPreview()
     message.textContent = error instanceof Error ? error.message : "QRコードを生成できませんでした"
   }
 }
 
-document.getElementById("GO")!.addEventListener("click", renderQR)
+downloadButton.addEventListener("click", () => {
+  const canvas = img.querySelector("canvas")
+  if (!canvas) return
+  const link = document.createElement("a")
+  link.href = canvas.toDataURL("image/png")
+  link.download = "qrcode.png"
+  link.click()
+})
 sizeInput.addEventListener("input", () => {
   setSize(sizeInput.value)
-  if (textInput.value) renderQR()
+  scheduleRender()
+})
+sizeNumberInput.addEventListener("input", () => {
+  const size = sizeNumberInput.valueAsNumber
+  if (!Number.isFinite(size) || size < 128 || size > 2048) return
+  setSize(sizeNumberInput.value, false)
+  scheduleRender()
 })
 sizeNumberInput.addEventListener("change", () => {
-  setSize(sizeNumberInput.value)
-  if (textInput.value) renderQR()
+  setSize(sizeNumberInput.value || sizeInput.value)
+  scheduleRender()
 })
 
 const controls = [
@@ -444,11 +537,7 @@ const controls = [
 controls.forEach((control) => {
   control.addEventListener("input", () => {
     updateLabels()
-    if (textInput.value) renderQR()
-  })
-  control.addEventListener("change", () => {
-    updateLabels()
-    if (textInput.value) renderQR()
+    scheduleRender()
   })
 })
 backgroundImageInput.addEventListener("change", () => {
@@ -458,19 +547,24 @@ backgroundImageInput.addEventListener("change", () => {
   if (backgroundImageUrl) URL.revokeObjectURL(backgroundImageUrl)
   const imageUrl = URL.createObjectURL(file)
   backgroundImageUrl = imageUrl
+  clearBackgroundImageButton.disabled = false
   const image = new Image()
   image.onload = () => {
     if (backgroundImageUrl !== imageUrl) return
     backgroundImage = image
     URL.revokeObjectURL(imageUrl)
     backgroundImageUrl = null
-    if (textInput.value) renderQR()
+    scheduleRender()
   }
   image.onerror = () => {
     if (backgroundImageUrl !== imageUrl) return
     backgroundImage = null
     URL.revokeObjectURL(imageUrl)
     backgroundImageUrl = null
+    backgroundImageInput.value = ""
+    clearBackgroundImageButton.disabled = true
+    clearTimeout(renderTimer)
+    clearPreview()
     message.textContent = "背景画像を読み込めませんでした"
   }
   image.src = imageUrl
@@ -480,115 +574,108 @@ clearBackgroundImageButton.addEventListener("click", () => {
   backgroundImageUrl = null
   backgroundImage = null
   backgroundImageInput.value = ""
-  if (textInput.value) renderQR()
+  clearBackgroundImageButton.disabled = true
+  scheduleRender()
 })
-textInput.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") renderQR()
+document.getElementById("generate")!.addEventListener("click", scheduleRender)
+textInput.addEventListener("input", scheduleRender)
+textInput.addEventListener("compositionstart", () => {
+  isComposing = true
+  clearTimeout(renderTimer)
+  downloadButton.disabled = true
+})
+textInput.addEventListener("compositionend", () => {
+  isComposing = false
+  scheduleRender()
 })
 updateLabels()
+renderQR()
 </script>
 
-<style is:global>
-    .nue {}
-    .text-input {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        margin-bottom: 16px;
-    }
-    .text-input input {
-        min-width: min(420px, 70vw);
-    }
-    .qr-controls {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 12px;
-        max-width: 560px;
-        margin: 0 auto 16px;
-        text-align: left;
-    }
-    .qr-controls label,
-    .color-inputs label {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-    }
-    .qr-controls select,
-    .qr-controls input[type="number"] {
-        width: 100%;
-        box-sizing: border-box;
-    }
-    .range-label span {
-        display: flex;
-        justify-content: space-between;
-    }
-    .range-label input {
-        width: 100%;
-    }
-    .color-inputs {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 12px;
-        grid-column: 1 / -1;
-    }
-    .color-inputs input {
-        width: 100%;
-        min-height: 32px;
-        box-sizing: border-box;
-    }
-    .color-inputs select {
-        width: 100%;
-        min-height: 32px;
-        box-sizing: border-box;
-    }
-    .color-inputs button {
-        align-self: end;
-        min-height: 32px;
-    }
-    #message {
-        min-height: 1.5em;
-        margin: 12px 0;
-    }
-    #qr {
-        background-color: white;
-        width: min(90vw, 2048px);
-        max-width: 100%;
-        display: flex;
-        justify-content: center; /* 横中央 */
-        align-items: center;     /* 縦中央 */
-        margin: 0 auto;
-    }
-    #qr canvas {
-        display: block;
-        max-width: 100%;
-        height: auto;
-    }
-    .c {
-        text-align: center;
-    }
-    @media (orientation: landscape) {
-        .nue {
-            width: 50vw;
-            margin: 0 auto;
-        }
-        #qr {
-            width: 80%;
-        }
-    }
-    @media (max-width: 600px) {
-        .text-input {
-            align-items: stretch;
-            flex-direction: column;
-        }
-        .text-input input {
-            min-width: 0;
-        }
-        .qr-controls {
-            grid-template-columns: 1fr;
-        }
-        .color-inputs {
-            grid-column: auto;
-        }
-    }
+<style>
+  .qr-generator {
+    --field-gap: 12px;
+    --group-gap: 16px;
+    max-width: 640px;
+    margin: 0 auto;
+  }
+  .page-heading { text-align: center; }
+  .page-heading p, .hint, .field small {
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+  .workspace { margin-top: 16px; }
+  .settings { display: grid; gap: var(--group-gap); max-width: 560px; margin: 0 auto; }
+  .settings > section { display: grid; gap: var(--field-gap); }
+  .panel { min-width: 0; }
+  .panel h3 { font-size: 1rem; }
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    margin: 0;
+  }
+  .qr-generator input[type="text"],
+  .qr-generator input[type="number"],
+  .qr-generator select {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+  .qr-generator input[type="range"] {
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+  }
+  .content-input { display: flex; align-items: stretch; gap: 8px; }
+  .content-input .field { flex: 1; margin-bottom: 0; }
+  .content-input button { flex-shrink: 0; white-space: nowrap; }
+  .size-controls { display: flex; align-items: center; gap: 12px; }
+  .size-controls > input { flex: 1; }
+  .number-unit { display: flex; align-items: center; gap: 4px; }
+  .number-unit input { max-width: 90px; }
+  .hint { margin: 0; }
+  .section-body > .hint { margin-top: calc(4px - var(--group-gap)); }
+  .section-body fieldset > .hint { margin-block: calc(4px - var(--field-gap)); }
+  .settings-section {
+    padding: var(--field-gap) 0 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.25);
+  }
+  .settings-section summary { cursor: pointer; }
+  .section-body { display: grid; gap: var(--group-gap); padding: var(--group-gap) 0 0; }
+  .section-body fieldset {
+    display: grid;
+    gap: var(--field-gap);
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+  .section-body legend { padding: 0; margin-bottom: var(--field-gap); font-weight: bold; }
+  .control-grid, .shape-controls {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: var(--field-gap);
+  }
+  .range-field > span { display: flex; justify-content: space-between; gap: 8px; }
+  .value { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .qr-generator input[type="color"] { width: 100%; height: 32px; box-sizing: border-box; }
+  .qr-generator input[type="file"] { width: 100%; min-width: 0; }
+  .qr-generator [hidden] { display: none; }
+  .file-controls { display: flex; align-items: center; gap: 8px; }
+  .file-controls input { flex: 1; }
+  .file-controls button { flex-shrink: 0; white-space: nowrap; }
+  .preview-panel { margin-top: 24px; text-align: center; }
+  .preview-heading { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 12px; }
+  .preview-heading h3 { margin: 0; }
+  .preview-stage { max-width: 560px; margin: 0 auto; }
+  #preview-placeholder { font-size: 0.9rem; line-height: 1.5; }
+  #qr { width: 100%; min-width: 0; background: white; }
+  #qr :global(canvas) { display: block; width: 100%; height: auto; }
+  #message { min-height: 1.5em; margin: 12px 0; overflow-wrap: anywhere; }
+  @media (max-width: 600px) {
+    .control-grid { grid-template-columns: minmax(0, 1fr); }
+  }
 </style>

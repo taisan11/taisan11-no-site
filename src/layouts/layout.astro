@@ -8,7 +8,7 @@ const { title } = Astro.props;
     <Head title={title}></Head>
     <body>
         <header class="site-header">
-            <h1 class="site-title">taisan11のサイト</h1>
+            <h1 class="site-title"><a href="/">taisan11のサイト</a></h1>
             <nav class="site-nav">
                 <A href="/">Home</A>
                 <A href="/blog">Blog</A>
@@ -34,10 +34,13 @@ const { title } = Astro.props;
         flex-direction: column;
     }
     .site-title {
-        color: #4eb8ff;
         font-size: 2.25rem;
         font-weight: 700;
         margin: 0;
+        * {
+            text-decoration: none !important;
+            color: #4eb8ff !important;
+        }
     }
     .site-nav {
         display: flex;
