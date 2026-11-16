@@ -21,11 +21,7 @@ import A from "../../components/A.astro";
         <button id="f2f-stop-btn" type="button" disabled>停止</button>
       </div>
       <p>送信側はファイルを選んで「送信開始」、受信側は「受信開始」を押してください。</p>
-      <div class="status" role="status">
-        <div id="f2f-emoji">📷</div>
-        <p id="f2f-info">送信または受信を開始してください。</p>
-        <p id="f2f-meta"></p>
-      </div>
+      <p class="status" id="f2f-info" role="status">📷 送信または受信を開始してください。</p>
       <a id="f2f-download" hidden>受信ファイルを保存</a>
 
       <div class="facetoface-layout">
@@ -339,9 +335,7 @@ const f2fQrBox = document.getElementById("f2f-qr-box") as HTMLDivElement;
 const f2fQrLabel = document.getElementById("f2f-qr-label") as HTMLHeadingElement;
 const f2fVideo = document.getElementById("f2f-video") as HTMLVideoElement;
 const f2fOverlay = document.getElementById("f2f-overlay") as HTMLCanvasElement;
-const f2fEmoji = document.getElementById("f2f-emoji") as HTMLDivElement;
 const f2fInfo = document.getElementById("f2f-info") as HTMLParagraphElement;
-const f2fMeta = document.getElementById("f2f-meta") as HTMLParagraphElement;
 const f2fDownloadLink = document.getElementById("f2f-download") as HTMLAnchorElement;
 const f2fCameraSelectWrap = document.getElementById("f2f-camera-select-wrap") as HTMLDivElement;
 const f2fCameraSelect = document.getElementById("f2f-camera-select") as HTMLSelectElement;
@@ -357,9 +351,17 @@ let f2fStopScan: (() => void) | null = null;
 let f2fLastAck = "";
 
 function setF2FStatus(symbol: string, message: string, meta = ""): void {
-  f2fEmoji.textContent = symbol;
-  f2fInfo.textContent = message;
-  f2fMeta.textContent = meta;
+  // Count unacknowledged QR packets, including the final END packet.
+  const remaining = f2fRole === "send" && f2fSenderState
+    ? f2fSenderState.completed ? 0 : f2fSenderState.packets.length - f2fSenderState.index
+    : f2fRole === "receive" && f2fReceiverState
+      ? f2fReceiverState.completed ? 0 : f2fReceiverState.chunkCount - f2fReceiverState.receivedCount + 1
+      : null;
+  f2fInfo.textContent = [
+    `${symbol} ${message}`,
+    remaining === null ? "" : `残りQR: ${remaining}枚`,
+    meta,
+  ].filter(Boolean).join(" / ");
 }
 
 function updateF2FControls(): void {
@@ -413,7 +415,7 @@ function updateF2FSenderView(): void {
   if (packet.t === "start") {
     setF2FStatus("📤", `開始QR (${state.file.name}) - ACK待機中...`);
   } else if (packet.t === "data") {
-    setF2FStatus("📤", `データ ${packet.i + 1} / ${state.dataCount} - ACK待機中...`);
+    setF2FStatus("📤", "送信中 - ACK待機中...");
   } else {
     setF2FStatus("📤", "終了QR - 終了ACK待機中...");
   }
@@ -443,7 +445,7 @@ async function handleF2FPacket(packet: Packet): Promise<void> {
       f2fReceiverState = createReceiver(packet);
       clearF2FDownloadLink();
       setF2FStatus("🟢", "開始QRを受信しました。ACKを表示しています。",
-        `全体: ${packet.size} byte / ${packet.chunkCount} 枚`);
+        `圧縮サイズ: ${packet.size} byte`);
     }
     // A retransmitted START must not discard received chunks.
     if (f2fReceiverState.receivedCount === 0) showF2FAck(packet);
@@ -454,9 +456,7 @@ async function handleF2FPacket(packet: Packet): Promise<void> {
   if (packet.t === "data") {
     if (packet.i > state.receivedCount || !acceptChunk(state, packet)) return;
     if (!state.completed && !state.finishing) {
-      const done = state.receivedCount;
-      setF2FStatus("🟢", "受信しました。ACKを表示しています。",
-        `進捗: ${done}/${state.chunkCount} (${Math.round((done / state.chunkCount) * 100)}%)`);
+      setF2FStatus("🟢", "受信しました。ACKを表示しています。");
     }
     // Old frames must not replace the ACK for the newest accepted chunk.
     if (!state.completed && packet.seq === state.receivedCount) showF2FAck(packet);
@@ -640,9 +640,6 @@ clearF2FDownloadLink();
   }
   .status {
     margin-top: 0.75rem;
-  }
-  #f2f-emoji {
-    font-size: 2rem;
   }
   #f2f-download {
     display: inline-block;
