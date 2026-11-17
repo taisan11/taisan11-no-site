@@ -1,0 +1,223 @@
+---
+import Layout from "../../layouts/layout.astro";
+import A from "../../components/A.astro";
+---
+
+<Layout title="Diff（テキスト比較） | taisan11のサイト">
+  <div class="nue">
+    <A href="/tools">← 戻る</A><br/>
+    <h2>Diff（テキスト比較）</h2>
+    <p>2つのテキストを入力すると、異なる箇所をハイライトします。処理はブラウザ内で完結し、入力内容は送信・保存しません。</p>
+    <div class="inputs">
+      <div>
+        <label for="mae">テキスト1</label>
+        <div class="editor">
+          <div class="highlights" aria-hidden="true"><pre id="mae-highlight"></pre></div>
+          <textarea id="mae" name="mae" wrap="off" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="比較するテキスト1"></textarea>
+        </div>
+      </div>
+      <div>
+        <label for="ato">テキスト2</label>
+        <div class="editor">
+          <div class="highlights" aria-hidden="true"><pre id="ato-highlight"></pre></div>
+          <textarea id="ato" name="ato" wrap="off" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="比較するテキスト2"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="actions">
+      <button id="compare" type="button">比較する</button>
+      <button id="clear" type="button">クリア</button>
+    </div>
+    <p class="hint">入力すると自動で比較します。空白・タブ・末尾の改行も比較します（改行コードの違いは無視します）。長い行は入力欄内で横スクロールできます。</p>
+    <p class="legend">
+      <span class="changed-key">色付きの部分：変更箇所</span>
+    </p>
+    <p id="status" role="status" aria-live="polite">比較するテキストを入力してください。</p>
+    <noscript><p>このツールを使うにはJavaScriptを有効にしてください。</p></noscript>
+  </div>
+</Layout>
+
+<script>
+  import { compareText, type DiffLine } from "../../lib/text-diff";
+
+  const mae = document.getElementById("mae") as HTMLTextAreaElement;
+  const ato = document.getElementById("ato") as HTMLTextAreaElement;
+  const beforeHighlight = document.getElementById("mae-highlight") as HTMLPreElement;
+  const afterHighlight = document.getElementById("ato-highlight") as HTMLPreElement;
+  const compare = document.getElementById("compare") as HTMLButtonElement;
+  const clear = document.getElementById("clear") as HTMLButtonElement;
+  const status = document.getElementById("status") as HTMLParagraphElement;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+
+  function syncScroll(input: HTMLTextAreaElement, highlight: HTMLPreElement) {
+    highlight.style.transform = `translate(${-input.scrollLeft}px, ${-input.scrollTop}px)`;
+  }
+
+  function createLine(line: DiffLine) {
+    const element = document.createElement("span");
+    element.className = "highlight-line";
+    for (const part of line.parts) {
+      const span = document.createElement("span");
+      if (part.changed) span.className = "changed-text";
+      // Keep user input as text: HTML and scripts are never interpreted.
+      span.textContent = part.text;
+      element.append(span);
+    }
+    // Empty lines still need the same height as a textarea line.
+    if (!element.textContent) element.textContent = "\u200b";
+    return element;
+  }
+
+  function renderDiff() {
+    clearTimeout(timer);
+    const diff = compareText(mae.value, ato.value);
+    const before = document.createDocumentFragment();
+    const after = document.createDocumentFragment();
+    for (const row of diff.rows) {
+      // Do not insert alignment placeholders: each highlight must stay on its
+      // original textarea line, including after insertions and deletions.
+      if (row.before) before.append(createLine(row.before));
+      if (row.after) after.append(createLine(row.after));
+    }
+    beforeHighlight.replaceChildren(before);
+    afterHighlight.replaceChildren(after);
+    syncScroll(mae, beforeHighlight);
+    syncScroll(ato, afterHighlight);
+    status.textContent = diff.removed || diff.added
+      ? "変更箇所をハイライトしています。"
+      : mae.value || ato.value ? "差分はありません。" : "比較するテキストを入力してください。";
+    if (diff.simplified) {
+      status.textContent += " 比較量が多いため、一部の範囲をまとめて変更として表示しています。細かく比較する場合は入力を分割してください。";
+    }
+  }
+
+  function scheduleComparison() {
+    clearTimeout(timer);
+    // Avoid showing stale highlights at the wrong positions while typing.
+    beforeHighlight.replaceChildren();
+    afterHighlight.replaceChildren();
+    timer = setTimeout(renderDiff, 150);
+  }
+
+  for (const [input, highlight] of [[mae, beforeHighlight], [ato, afterHighlight]] as const) {
+    input.addEventListener("input", event => {
+      if (!(event as InputEvent).isComposing) scheduleComparison();
+      else {
+        clearTimeout(timer);
+        beforeHighlight.replaceChildren();
+        afterHighlight.replaceChildren();
+      }
+    });
+    input.addEventListener("compositionend", scheduleComparison);
+    input.addEventListener("scroll", () => syncScroll(input, highlight));
+  }
+  compare.addEventListener("click", renderDiff);
+  clear.addEventListener("click", () => {
+    mae.value = "";
+    ato.value = "";
+    renderDiff();
+    mae.focus();
+  });
+  // Also restore highlights if the browser restores form values on navigation.
+  window.addEventListener("pageshow", renderDiff);
+  renderDiff();
+</script>
+
+<style>
+  .nue {
+    max-width: 75rem;
+    margin: 0 auto;
+    min-width: 0;
+  }
+  .inputs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+  }
+  .inputs > div { min-width: 0; }
+  label {
+    display: block;
+    margin-bottom: 0.4rem;
+  }
+  .editor {
+    position: relative;
+    height: 20rem;
+    min-height: 10rem;
+    overflow: hidden;
+    resize: vertical;
+    border: 1px solid #94a3b3;
+    border-radius: 3px;
+    background: #26313d;
+  }
+  .editor:focus-within {
+    outline: 2px solid #81e4da;
+    outline-offset: 2px;
+  }
+  .highlights {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  pre, textarea {
+    box-sizing: border-box;
+    margin: 0;
+    border: 0;
+    padding: 0.6rem;
+    font: 1rem/1.5 monospace;
+    font-variant-ligatures: none;
+    letter-spacing: normal;
+    tab-size: 4;
+    white-space: pre;
+    overflow-wrap: normal;
+  }
+  pre {
+    width: max-content;
+    min-width: 100%;
+    min-height: 100%;
+    color: transparent;
+    transform-origin: top left;
+  }
+  textarea {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    resize: none;
+    overflow: auto;
+    background: transparent;
+    color: #fff;
+    caret-color: #fff;
+    outline: none;
+    border-radius: inherit;
+  }
+  textarea::placeholder { color: #b6c3d0; }
+  textarea::selection { background: #326798; color: #fff; }
+  .highlights :global(.highlight-line) {
+    display: block;
+    min-height: 1.5em;
+  }
+  .highlights :global(.changed-text) { background: #237d4b; }
+  .actions, .legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem;
+    margin: 1rem 0;
+  }
+  button {
+    padding: 0.4rem 0.7rem;
+    font: inherit;
+    cursor: pointer;
+  }
+  .hint, .legend { font-size: 0.9rem; }
+  .changed-key {
+    padding: 0.2rem 0.4rem;
+    border-radius: 3px;
+    background: #237d4b;
+  }
+  @media (max-width: 600px) {
+    .inputs { grid-template-columns: 1fr; }
+  }
+</style>
