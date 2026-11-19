@@ -16,11 +16,15 @@ import A from "../../components/A.astro";
       <div class="transfer-controls">
         <label for="file-f2f-send">送信ファイル</label>
         <input type="file" name="file-f2f-send" id="file-f2f-send" />
+        <label for="f2f-chunk-size">チャンクサイズ</label>
+        <input type="range" id="f2f-chunk-size" min="800" max="1000" step="10" value="900" />
+        <span><output id="f2f-chunk-size-value" for="f2f-chunk-size">900</output> byte</span>
         <button id="f2f-send-btn" type="button">送信開始</button>
         <button id="f2f-recv-btn" type="button">受信開始</button>
         <button id="f2f-stop-btn" type="button" disabled>停止</button>
       </div>
       <p>送信側はファイルを選んで「送信開始」、受信側は「受信開始」を押してください。</p>
+      <p class="hint">チャンクサイズを大きくするとQRの枚数が減りますが、1枚のQRが細かくなり読み取りにくくなります。</p>
       <p class="status" id="f2f-info" role="status">📷 送信または受信を開始してください。</p>
       <a id="f2f-download" hidden>受信ファイルを保存</a>
 
@@ -47,11 +51,19 @@ import A from "../../components/A.astro";
 <script>
 import { encodeQR } from "qr";
 import { QRCanvas, selfieCamera, frameLoop } from "qr/dom.js";
+import { createLzma2, type Lzma2Codec } from "@taisan11/lzma2";
+// The codec resolves its wasm through node:fs, which browsers cannot use, so
+// fetch the bundled asset and hand the bytes to the codec explicitly.
+import lzma2WasmUrl from "@taisan11/lzma2/wasm?url";
 
 // QR byte mode: 13-byte header + up to 2000 raw payload bytes (ECC low).
-const MAGIC = new Uint8Array([0x51, 0x44, 0x52, 0x32]); // QDR2
+// Version 3 payloads are raw LZMA2 streams (version 2 used gzip).
+const MAGIC = new Uint8Array([0x51, 0x44, 0x52, 0x33]); // QDR3
 const HEADER_SIZE = 13;
-const CHUNK_SIZE = 600;
+// Data QR payload is HEADER_SIZE + chunkSize bytes; the slider sets chunkSize.
+const MIN_CHUNK_SIZE = 800;
+const MAX_CHUNK_SIZE = 1000;
+const DEFAULT_CHUNK_SIZE = 900;
 const utf8Encoder = new TextEncoder();
 const utf8Decoder = new TextDecoder("utf-8", { fatal: true });
 
@@ -99,44 +111,39 @@ function binaryText(bytes: Uint8Array): string {
   return String.fromCharCode(...bytes);
 }
 
+// The WASM module (~58 KiB) is only fetched once a transfer starts.
+let lzma2CodecPromise: Promise<Lzma2Codec> | null = null;
+
+function getLzma2(): Promise<Lzma2Codec> {
+  lzma2CodecPromise ??= (async () => {
+    const response = await fetch(lzma2WasmUrl);
+    if (!response.ok) throw new Error("圧縮エンジンを読み込めませんでした。");
+    return createLzma2(await response.arrayBuffer());
+  })().catch((error: unknown) => {
+    lzma2CodecPromise = null; // Allow a retry on the next transfer.
+    throw error;
+  });
+  return lzma2CodecPromise;
+}
+
+// The WASM codec is synchronous, so yield once after the status message has
+// been updated to let the browser paint it before the main thread blocks.
+function yieldToPaint(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+// Level 9 uses the optimal parser; LZMA2 compresses far better than gzip,
+// which directly reduces the number of QR frames to scan.
 async function compressBytes(bytes: Uint8Array): Promise<Uint8Array> {
-  const stream = new ReadableStream({ start: (c) => { c.enqueue(bytes); c.close(); } });
-  const compressed = stream.pipeThrough(new CompressionStream("gzip"));
-  const reader = compressed.getReader();
-  const chunks: Uint8Array[] = [];
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    if (value) chunks.push(value);
-  }
-  const total = chunks.reduce((s, c) => s + c.length, 0);
-  const result = new Uint8Array(total);
-  let offset = 0;
-  for (const chunk of chunks) {
-    result.set(chunk, offset);
-    offset += chunk.length;
-  }
-  return result;
+  const codec = await getLzma2();
+  await yieldToPaint();
+  return codec.compress(bytes, { level: 9, dictSize: 1 << 23 });
 }
 
 async function decompressBytes(bytes: Uint8Array): Promise<Uint8Array> {
-  const stream = new ReadableStream({ start: (c) => { c.enqueue(bytes); c.close(); } });
-  const decompressed = stream.pipeThrough(new DecompressionStream("gzip"));
-  const reader = decompressed.getReader();
-  const chunks: Uint8Array[] = [];
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    if (value) chunks.push(value);
-  }
-  const total = chunks.reduce((s, c) => s + c.length, 0);
-  const result = new Uint8Array(total);
-  let offset = 0;
-  for (const chunk of chunks) {
-    result.set(chunk, offset);
-    offset += chunk.length;
-  }
-  return result;
+  const codec = await getLzma2();
+  await yieldToPaint();
+  return codec.decompress(bytes);
 }
 
 function makePacket(packet: Packet): Uint8Array {
@@ -185,7 +192,8 @@ function parsePacket(text: string): Packet | null {
     const chunkCount = view.getUint32(23);
     const nameLength = view.getUint16(27);
     const typeLength = view.getUint16(29);
-    if (chunkSize !== CHUNK_SIZE || chunkCount !== Math.ceil(size / chunkSize)
+    if (chunkSize < MIN_CHUNK_SIZE || chunkSize > MAX_CHUNK_SIZE
+      || chunkCount !== Math.ceil(size / chunkSize)
       || bytes.length !== 31 + nameLength + typeLength) return null;
     try {
       return {
@@ -196,7 +204,7 @@ function parsePacket(text: string): Packet | null {
     } catch { return null; }
   }
   if (kind === 1 && seq > 0 && bytes.length > HEADER_SIZE
-    && bytes.length <= HEADER_SIZE + CHUNK_SIZE) {
+    && bytes.length <= HEADER_SIZE + MAX_CHUNK_SIZE) {
     return { t: "data", id, seq, i: seq - 1, data: bytes.subarray(HEADER_SIZE) };
   }
   if (bytes.length !== HEADER_SIZE) return null;
@@ -212,25 +220,25 @@ function renderQR(packet: Packet, target: HTMLDivElement): void {
   });
 }
 
-function getChunks(bytes: Uint8Array): Uint8Array[] {
+function getChunks(bytes: Uint8Array, chunkSize: number): Uint8Array[] {
   const chunks: Uint8Array[] = [];
-  for (let i = 0; i < bytes.length; i += CHUNK_SIZE) chunks.push(bytes.subarray(i, i + CHUNK_SIZE));
+  for (let i = 0; i < bytes.length; i += chunkSize) chunks.push(bytes.subarray(i, i + chunkSize));
   return chunks;
 }
 
-async function prepareSender(file: TransferFile): Promise<SenderState> {
+async function prepareSender(file: TransferFile, chunkSize: number): Promise<SenderState> {
   const compressed = await compressBytes(file.bytes);
   if (file.bytes.length > 0xffffffff || compressed.length > 0xffffffff) {
     throw new Error("ファイルが大きすぎます。");
   }
-  const chunks = getChunks(compressed);
+  const chunks = getChunks(compressed, chunkSize);
   const id = crypto.getRandomValues(new Uint32Array(1))[0];
   const packets: Packet[] = [
     {
       t: "start", id, seq: 0, name: file.name,
       type: file.type || "application/octet-stream",
       originalSize: file.bytes.length, size: compressed.length,
-      chunkSize: CHUNK_SIZE, chunkCount: chunks.length,
+      chunkSize, chunkCount: chunks.length,
     },
     ...chunks.map((data, i): Packet => ({ t: "data", id, seq: i + 1, i, data })),
     { t: "end", id, seq: chunks.length + 1 },
@@ -281,7 +289,7 @@ async function finishTransfer(
     return false;
   }
   state.finishing = true;
-  setStatus("🔄", "解凍中...", "");
+  setStatus("🔄", "LZMA2で解凍中...", "");
   try {
     const decompressed = await decompressBytes(joinChunks(state));
     if (!isCurrent()) return false;
@@ -328,6 +336,8 @@ async function populateCameraSelect(
 
 // === Elements ===
 const f2fFileInput = document.getElementById("file-f2f-send") as HTMLInputElement;
+const f2fChunkSizeInput = document.getElementById("f2f-chunk-size") as HTMLInputElement;
+const f2fChunkSizeValue = document.getElementById("f2f-chunk-size-value") as HTMLOutputElement;
 const f2fSendBtn = document.getElementById("f2f-send-btn") as HTMLButtonElement;
 const f2fRecvBtn = document.getElementById("f2f-recv-btn") as HTMLButtonElement;
 const f2fStopBtn = document.getElementById("f2f-stop-btn") as HTMLButtonElement;
@@ -364,9 +374,21 @@ function setF2FStatus(symbol: string, message: string, meta = ""): void {
   ].filter(Boolean).join(" / ");
 }
 
+function readChunkSize(): number {
+  const value = Math.round(Number(f2fChunkSizeInput.value));
+  return Number.isFinite(value)
+    ? Math.min(MAX_CHUNK_SIZE, Math.max(MIN_CHUNK_SIZE, value))
+    : DEFAULT_CHUNK_SIZE;
+}
+
+function updateChunkSizeLabel(): void {
+  f2fChunkSizeValue.textContent = String(readChunkSize());
+}
+
 function updateF2FControls(): void {
   const busy = f2fRole !== null || f2fStartingCamera;
   f2fFileInput.disabled = busy;
+  f2fChunkSizeInput.disabled = busy;
   f2fSendBtn.disabled = busy;
   f2fRecvBtn.disabled = busy;
   f2fStopBtn.disabled = f2fRole === null;
@@ -511,7 +533,7 @@ async function startF2FCamera(session: number): Promise<void> {
   }
 }
 
-async function startF2FSession(role: "send" | "receive", file?: File): Promise<void> {
+async function startF2FSession(role: "send" | "receive", file?: File, chunkSize = DEFAULT_CHUNK_SIZE): Promise<void> {
   if (f2fRole !== null || f2fStartingCamera) return;
   stopF2FSession();
   const session = f2fSession;
@@ -522,11 +544,11 @@ async function startF2FSession(role: "send" | "receive", file?: File): Promise<v
     await startF2FCamera(session);
     if (session !== f2fSession) return;
     if (role === "send" && file) {
-      setF2FStatus("🔄", "圧縮中...");
+      setF2FStatus("🔄", "LZMA2で圧縮中...");
       const state = await prepareSender({
         name: file.name, type: file.type,
         bytes: new Uint8Array(await file.arrayBuffer()),
-      });
+      }, chunkSize);
       if (session !== f2fSession) return;
       f2fSenderState = state;
       updateF2FSenderView();
@@ -547,7 +569,7 @@ f2fSendBtn.addEventListener("click", async () => {
     setF2FStatus("⚠️", "送信するファイルを選んでください。");
     return;
   }
-  await startF2FSession("send", file);
+  await startF2FSession("send", file, readChunkSize());
 });
 
 f2fRecvBtn.addEventListener("click", async () => {
@@ -555,7 +577,9 @@ f2fRecvBtn.addEventListener("click", async () => {
 });
 
 f2fStopBtn.addEventListener("click", stopF2FSession);
+f2fChunkSizeInput.addEventListener("input", updateChunkSizeLabel);
 window.addEventListener("pagehide", stopF2FSession);
+updateChunkSizeLabel();
 updateF2FControls();
 clearF2FDownloadLink();
 </script>
@@ -577,6 +601,17 @@ clearF2FDownloadLink();
   }
   .transfer-controls input {
     max-width: 100%;
+  }
+  .hint {
+    margin-top: 0.25rem;
+  }
+  .transfer-controls input[type="range"] {
+    width: 9rem;
+    accent-color: currentColor;
+    vertical-align: middle;
+  }
+  .transfer-controls output {
+    font-variant-numeric: tabular-nums;
   }
   .facetoface-layout {
     display: grid;

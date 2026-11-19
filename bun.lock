@@ -9,6 +9,7 @@
         "@astrojs/mdx": "8.1.6",
         "@astrojs/sitemap": "3.7.6",
         "@playform/compress": "^0.2.5",
+        "@taisan11/lzma2": "^1.1.0",
         "@taisan11/vite-plugin-budoux-build": "npm:@jsr/taisan11__vite-plugin-budoux-build@^1.0.1",
         "astro": "7.4.13",
         "astro-robots-txt": "^1.0.0",
@@ -438,6 +439,8 @@
     "@sindresorhus/is": ["@sindresorhus/is@7.2.0", "", {}, "sha512-P1Cz1dWaFfR4IR+U13mqqiGsLFf1KbayybWwdd2vfctdV6hDpUkgCY0nKOLLTMSoRd/jJNjtbqzf13K8DCCXQw=="],
 
     "@speed-highlight/core": ["@speed-highlight/core@1.2.24", "", {}, "sha512-qeW2e1l78afw8VhRPfPQ1Gjj+KU5XFQ/OFV5ti6eTa9bruO7mJyZtA4vw0ofqmA3tKCkROE9xLk3VZoeRc98nw=="],
+
+    "@taisan11/lzma2": ["@taisan11/lzma2@1.1.0", "", {}, "sha512-BBIfXfBWXo+Xknq/hFaRwaM504X0XQmIN/EcPQrv7yxg0XPzjR8RDx8vi25w7OZ2OJh+sScrr3hNxRYuHtteHw=="],
 
     "@taisan11/vite-plugin-budoux-build": ["@jsr/taisan11__vite-plugin-budoux-build@1.0.1", "https://npm.jsr.io/~/11/@jsr/taisan11__vite-plugin-budoux-build/1.0.1.tgz", { "dependencies": { "astro": "^5.1.3", "budoux": "^0.6.3", "magic-string": "^0.30.17", "node-html-parser": "^7.0.1", "pathe": "^2.0.0", "vite": "^6.0.7" } }, "sha512-9rd1kN5oAgZg5vYxqRWkmAgla72HJdDqULXN9lcRePID3d70Q7t4Ndf6I1zrsd5RUd1zUxn2AQ3Mo95Am58o0Q=="],
 

@@ -1,0 +1,373 @@
+---
+import Layout from "../../layouts/layout.astro";
+import A from "../../components/A.astro";
+---
+
+<Layout title="QRコード読み取り | taisan11のサイト">
+  <div class="qr-scanner">
+    <A href="/tools">← ツール一覧へ</A>
+    <header class="page-heading">
+      <h2>QRコード読み取り</h2>
+      <p>カメラまたは画像ファイルからQRコードを読み取ります。</p>
+    </header>
+
+    <div class="workspace">
+      <section class="panel camera-panel" aria-labelledby="camera-heading">
+        <div class="panel-heading">
+          <h3 id="camera-heading">カメラ</h3>
+        </div>
+        <div class="camera-stage">
+          <video id="video" playsinline muted></video>
+          <canvas id="overlay" aria-hidden="true"></canvas>
+          <p id="camera-placeholder">「読み取り開始」を押すとカメラが起動します。</p>
+        </div>
+        <div class="controls">
+          <button type="button" id="start">読み取り開始</button>
+          <button type="button" id="stop" disabled>停止</button>
+        </div>
+        <div class="camera-select-row" id="camera-select-row" hidden>
+          <label for="camera-select">カメラ</label>
+          <select id="camera-select"></select>
+        </div>
+        <p id="message" role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="panel result-panel" aria-labelledby="result-heading">
+        <div class="panel-heading">
+          <h3 id="result-heading">読み取り結果</h3>
+          <button type="button" id="copy" disabled>コピー</button>
+        </div>
+        <textarea id="result" rows="4" readonly placeholder="読み取った内容がここに表示されます。"></textarea>
+        <p class="open-link-row"><a id="open-link" href="#" target="_blank" rel="noopener noreferrer" hidden>リンクを開く →</a></p>
+      </section>
+
+      <details class="panel settings-section">
+        <summary>画像ファイルから読み取る</summary>
+        <div class="section-body">
+          <label class="field">
+            <span>画像を選択</span>
+            <input type="file" id="file" accept="image/*" />
+          </label>
+          <p class="hint">スクリーンショットなど、保存したQRコードの画像を読み取れます。</p>
+        </div>
+      </details>
+    </div>
+  </div>
+</Layout>
+
+<script>
+import { QRCanvas, frameLoop, rearCamera, selfieCamera } from "qr/dom.js";
+import decodeQR from "qr/decode.js";
+
+const video = document.getElementById("video") as HTMLVideoElement;
+const overlay = document.getElementById("overlay") as HTMLCanvasElement;
+const placeholder = document.getElementById("camera-placeholder") as HTMLParagraphElement;
+const startButton = document.getElementById("start") as HTMLButtonElement;
+const stopButton = document.getElementById("stop") as HTMLButtonElement;
+const cameraSelectRow = document.getElementById("camera-select-row") as HTMLDivElement;
+const cameraSelect = document.getElementById("camera-select") as HTMLSelectElement;
+const resultInput = document.getElementById("result") as HTMLTextAreaElement;
+const copyButton = document.getElementById("copy") as HTMLButtonElement;
+const openLink = document.getElementById("open-link") as HTMLAnchorElement;
+const fileInput = document.getElementById("file") as HTMLInputElement;
+const message = document.getElementById("message") as HTMLParagraphElement;
+
+type Camera = Awaited<ReturnType<typeof rearCamera>>;
+
+let camera: Camera | null = null;
+let stopLoop: (() => void) | null = null;
+let session = 0;
+let starting = false;
+let lastResult = "";
+
+function updateControls() {
+  startButton.disabled = starting || camera !== null;
+  stopButton.disabled = !starting && camera === null;
+}
+
+function showResult(text: string) {
+  if (!text || text === lastResult) return;
+  lastResult = text;
+  resultInput.value = text;
+  resultInput.scrollTop = 0;
+  copyButton.disabled = false;
+  const trimmed = text.trim();
+  const isUrl = /^https?:\/\/\S+$/i.test(trimmed);
+  openLink.hidden = !isUrl;
+  if (isUrl) openLink.href = trimmed;
+  else openLink.removeAttribute("href");
+  message.textContent = "読み取りました。";
+}
+
+function clearCameraView() {
+  video.pause();
+  video.classList.remove("active");
+  video.srcObject = null;
+  placeholder.hidden = false;
+  cameraSelectRow.hidden = true;
+  cameraSelect.replaceChildren();
+  overlay.getContext("2d")?.clearRect(0, 0, overlay.width, overlay.height);
+}
+
+function stopScanning() {
+  session += 1;
+  stopLoop?.();
+  stopLoop = null;
+  camera?.stop();
+  camera = null;
+  starting = false;
+  clearCameraView();
+  updateControls();
+  message.textContent = "停止しました。";
+}
+
+async function populateCameraSelect(active: Camera, current: number) {
+  try {
+    const devices = await active.listDevices();
+    if (current !== session) return;
+    cameraSelect.replaceChildren(...devices.map((device) => new Option(device.label || "カメラ", device.deviceId)));
+    cameraSelectRow.hidden = devices.length <= 1;
+  } catch (error) {
+    console.error("カメラ一覧取得エラー:", error);
+  }
+}
+
+async function startScanning() {
+  if (starting || camera) return;
+  if (!navigator.mediaDevices?.getUserMedia) {
+    message.textContent = "このブラウザではカメラを利用できません。画像ファイルから読み取ってください。";
+    return;
+  }
+  const current = ++session;
+  starting = true;
+  updateControls();
+  message.textContent = "カメラを準備中…";
+
+  try {
+    const qr = new QRCanvas({ overlay }, { overlayTimeout: 600, cropToSquare: false });
+    let active: Camera;
+    try {
+      active = await rearCamera(video);
+    } catch {
+      active = await selfieCamera(video);
+    }
+    if (current !== session) {
+      active.stop();
+      if (!starting && !camera) video.srcObject = null;
+      return;
+    }
+    camera = active;
+    video.classList.add("active");
+    placeholder.hidden = true;
+    void video.play().catch(() => {});
+    void populateCameraSelect(active, current);
+    updateControls();
+
+    let reading = false;
+    stopLoop = frameLoop(async () => {
+      if (reading) return;
+      reading = true;
+      try {
+        const decoded = await active.readFrame(qr);
+        if (current !== session) return;
+        for (const text of Array.isArray(decoded) ? decoded : [decoded]) {
+          if (typeof text === "string") showResult(text);
+        }
+      } catch (error) {
+        console.error("QR読み取りエラー:", error);
+      } finally {
+        reading = false;
+      }
+    }, video);
+    message.textContent = "QRコードをカメラに向けてください。";
+  } catch (error) {
+    console.error(error);
+    if (current === session) {
+      camera = null;
+      clearCameraView();
+      message.textContent = "カメラを開始できませんでした。カメラの権限とHTTPS接続を確認してください。";
+    }
+  } finally {
+    if (current === session) {
+      starting = false;
+      updateControls();
+    }
+  }
+}
+
+async function decodeFile(file: File) {
+  message.textContent = "画像を読み取り中…";
+  try {
+    const bitmap = await createImageBitmap(file);
+    const longest = Math.max(bitmap.width, bitmap.height);
+    // 1セル1pxの小さな画像は拡大し、極端に大きい画像はメモリ対策で縮小する。
+    const scale = longest >= 512 ? Math.min(1, 2048 / longest) : Math.ceil(512 / longest);
+    const canvas = document.createElement("canvas");
+    canvas.width = bitmap.width * scale;
+    canvas.height = bitmap.height * scale;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) throw new Error("画像を描画できませんでした");
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+    const text = decodeQR(ctx.getImageData(0, 0, canvas.width, canvas.height), {
+      effort: Infinity,
+      timeLimit: Infinity,
+    });
+    showResult(text);
+  } catch (error) {
+    console.error("画像の読み取りエラー:", error);
+    message.textContent = "QRコードを読み取れませんでした。別の画像を試してください。";
+  }
+}
+
+copyButton.addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText(resultInput.value);
+    message.textContent = "コピーしました。";
+  } catch {
+    resultInput.select();
+    message.textContent = "コピーできませんでした。選択した内容を手動でコピーしてください。";
+  }
+});
+startButton.addEventListener("click", startScanning);
+stopButton.addEventListener("click", stopScanning);
+cameraSelect.addEventListener("change", async () => {
+  const active = camera;
+  if (!active) return;
+  try {
+    await active.setDevice(cameraSelect.value);
+    await video.play().catch(() => {});
+  } catch (error) {
+    console.error("カメラ切替エラー:", error);
+    message.textContent = "カメラを切り替えられませんでした。";
+  }
+});
+fileInput.addEventListener("change", () => {
+  const file = fileInput.files?.[0];
+  if (!file) return;
+  void decodeFile(file);
+});
+window.addEventListener("pagehide", () => {
+  if (camera || starting) stopScanning();
+});
+
+updateControls();
+</script>
+
+<style>
+  .qr-scanner {
+    --field-gap: 12px;
+    --group-gap: 16px;
+    max-width: 640px;
+    margin: 0 auto;
+  }
+  .page-heading { text-align: center; }
+  .page-heading p, .hint {
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+  .workspace {
+    display: grid;
+    gap: var(--group-gap);
+    margin-top: 16px;
+  }
+  .panel { min-width: 0; }
+  .panel-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .panel-heading h3 { margin: 0; font-size: 1rem; }
+  .camera-stage {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 200px;
+    background: #111;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  #video {
+    display: none;
+    width: 100%;
+    height: auto;
+  }
+  #video.active { display: block; }
+  #overlay {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+  #camera-placeholder {
+    margin: 0;
+    padding: 24px 16px;
+    color: #ccc;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    text-align: center;
+  }
+  .controls {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .camera-select-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 12px;
+    font-size: 0.9rem;
+  }
+  .camera-select-row select { max-width: 100%; min-width: 0; }
+  #message {
+    min-height: 1.5em;
+    margin: 12px 0 0;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    text-align: center;
+    overflow-wrap: anywhere;
+  }
+  #result {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 96px;
+    padding: 8px;
+    font: inherit;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    resize: vertical;
+    overflow-wrap: anywhere;
+  }
+  .open-link-row { margin: 8px 0 0; }
+  .panel-heading button { flex-shrink: 0; }
+  .settings-section {
+    padding-top: var(--field-gap);
+    border-top: 1px solid rgba(255, 255, 255, 0.25);
+  }
+  .settings-section summary { cursor: pointer; }
+  .section-body {
+    display: grid;
+    gap: var(--field-gap);
+    padding-top: var(--field-gap);
+  }
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    margin: 0;
+  }
+  .qr-scanner input[type="file"] { width: 100%; min-width: 0; }
+  .hint { margin: 0; }
+  .qr-scanner [hidden] { display: none; }
+</style>
